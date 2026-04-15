@@ -14,3 +14,4 @@ artifacts/
 data/*
 !data/samples/
 .DS_Store
+.claude/
