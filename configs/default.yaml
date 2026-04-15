@@ -1,0 +1,19 @@
+paths:
+  data_dir: data
+  artifacts_dir: artifacts
+
+segmentation:
+  sentence_splitter: razdel
+
+clauses:
+  strategy: sentence_as_clause
+
+graph:
+  builder: naive_head_dep
+
+aggregation:
+  linguistic_enabled: true
+  structural_enabled: false
+  semantic_enabled: false
+
+log_level: INFO

@@ -1,0 +1,46 @@
+[project]
+name = "metagraph-nlp-ru"
+version = "0.0.1"
+description = "Построение метаграфового представления русскоязычного текста"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "razdel>=0.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+metagraph-nlp = "metagraph_nlp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metagraph_nlp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+files = ["src/metagraph_nlp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
