@@ -53,4 +53,8 @@ class Clause(BaseModel):
         default=None,
         description="Поверхностная форма предикативного центра (если определён).",
     )
+    head_lemma: str | None = Field(
+        default=None,
+        description="Лемма предикативного центра.",
+    )
     provenance: Provenance

@@ -8,12 +8,25 @@ from metagraph_nlp.domain.provenance import Provenance
 
 
 class Node(BaseModel):
-    """Узел семантического графа — именной концепт или сущность."""
+    """Узел семантического графа — именной концепт или сущность.
+
+    Правило: `label` — всегда начальная форма (лемма) после перехода на
+    UD-парсер. Поле `surface` хранит исходную поверхностную форму для
+    трассируемости к тексту (CLAUDE.md §9.1).
+    """
 
     id: str
     label: str
     kind: str = Field(default="concept", description="Тип узла (concept, entity, ...).")
     lemma: str | None = None
+    surface: str | None = Field(
+        default=None,
+        description="Исходная поверхностная форма слова в тексте.",
+    )
+    upos: str | None = Field(
+        default=None,
+        description="Универсальная часть речи (NOUN, PROPN, VERB, ...).",
+    )
     clause_id: str | None = None
     provenance: Provenance
 

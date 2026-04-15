@@ -16,19 +16,41 @@ class SegmentationConfig(BaseModel):
 
 class ClauseConfig(BaseModel):
     strategy: str = Field(
-        default="sentence_as_clause",
-        description="Временная стратегия: каждое предложение = одна клауза.",
+        default="ud_subtree_clauses_v0",
+        description=(
+            "Стратегия выделения клауз. Варианты: "
+            "`sentence_as_clause_v0` (одно предложение = клауза), "
+            "`ud_subtree_clauses_v0` (поддерево финитного предиката)."
+        ),
     )
 
 
 class GraphConfig(BaseModel):
-    builder: str = "naive_head_dep"
+    builder: str = Field(
+        default="ud_roles_v0",
+        description="Билдер графа: `ud_roles_v0` (UD-роли) или `naive_head_dep_v0`.",
+    )
+
+
+class MorphSyntaxConfig(BaseModel):
+    parser: str = Field(
+        default="natasha",
+        description="Имя реализации `MorphSyntaxParser`: сейчас только `natasha`.",
+    )
 
 
 class AggregationConfig(BaseModel):
     linguistic_enabled: bool = True
     structural_enabled: bool = False
     semantic_enabled: bool = False
+    shared_entity_enabled: bool = Field(
+        default=True,
+        description="Создавать метарёбра shared_entity по общим леммам.",
+    )
+    shared_entity_min_lemma_len: int = 3
+    shared_entity_exclude_upos: list[str] = Field(
+        default_factory=lambda: ["PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "PART"],
+    )
 
 
 class PathsConfig(BaseModel):
@@ -39,6 +61,7 @@ class PathsConfig(BaseModel):
 class Config(BaseModel):
     paths: PathsConfig = Field(default_factory=PathsConfig)
     segmentation: SegmentationConfig = Field(default_factory=SegmentationConfig)
+    morphsyntax: MorphSyntaxConfig = Field(default_factory=MorphSyntaxConfig)
     clauses: ClauseConfig = Field(default_factory=ClauseConfig)
     graph: GraphConfig = Field(default_factory=GraphConfig)
     aggregation: AggregationConfig = Field(default_factory=AggregationConfig)

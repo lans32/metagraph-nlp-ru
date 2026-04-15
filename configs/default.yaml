@@ -5,15 +5,28 @@ paths:
 segmentation:
   sentence_splitter: razdel
 
+morphsyntax:
+  parser: natasha
+
 clauses:
-  strategy: sentence_as_clause
+  strategy: ud_subtree_clauses_v0
 
 graph:
-  builder: naive_head_dep
+  builder: ud_roles_v0
 
 aggregation:
   linguistic_enabled: true
   structural_enabled: false
   semantic_enabled: false
+  shared_entity_enabled: true
+  shared_entity_min_lemma_len: 3
+  shared_entity_exclude_upos:
+    - PRON
+    - DET
+    - ADP
+    - AUX
+    - CCONJ
+    - SCONJ
+    - PART
 
 log_level: INFO

@@ -31,8 +31,12 @@ def graph_to_dot(graph: SemanticGraph, clauses: list[Clause]) -> str:
 
     for n in graph.nodes:
         color = color_for(n.clause_id)
+        lemma_part = f"{n.label}"
+        if n.surface and n.surface != n.label:
+            lemma_part = f"{n.label} <- {n.surface}"
         tooltip = _escape(
-            f"{n.id} | kind={n.kind} | rule={n.provenance.rule} | "
+            f"{n.id} | {lemma_part} | upos={n.upos or n.kind} | "
+            f"rule={n.provenance.rule} | "
             f"clause: {by_clause.get(n.clause_id or '', '')}"
         )
         lines.append(
@@ -94,8 +98,12 @@ def metagraph_to_dot(
     for n in graph.nodes:
         owner = node_to_mnode.get(n.id)
         color = color_for(owner) if owner else "#dddddd"
+        lemma_part = f"{n.label}"
+        if n.surface and n.surface != n.label:
+            lemma_part = f"{n.label} <- {n.surface}"
         tooltip = _escape(
-            f"{n.id} | kind={n.kind} | rule={n.provenance.rule} | "
+            f"{n.id} | {lemma_part} | upos={n.upos or n.kind} | "
+            f"rule={n.provenance.rule} | "
             f"clause: {by_clause.get(n.clause_id or '', '')}"
         )
         lines.append(

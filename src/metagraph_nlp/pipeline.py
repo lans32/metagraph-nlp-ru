@@ -1,6 +1,8 @@
-"""Оркестрация стадий pipeline: text → sentences → clauses → graph → metagraph.
+"""Оркестрация стадий pipeline: text → sentences → parse → clauses → graph → metagraph.
 
 Каждая стадия — явный вызов с явным входом и выходом (CLAUDE.md §9.6).
+Морфо-синтаксический парсер инжектируется через аргумент `parser` — это
+позволяет подменять реализацию в тестах (fake) и в продакшене (natasha).
 """
 
 from __future__ import annotations
@@ -8,7 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from metagraph_nlp.aggregators import aggregate_clauses_to_metanodes
+from metagraph_nlp.aggregators import (
+    aggregate_clauses_to_metanodes,
+    build_shared_entity_metaedges,
+)
 from metagraph_nlp.config import Config
 from metagraph_nlp.domain import (
     Clause,
@@ -22,6 +27,7 @@ from metagraph_nlp.domain import (
 from metagraph_nlp.graph_builders import build_semantic_graph
 from metagraph_nlp.io import write_pipeline_artifacts
 from metagraph_nlp.parsers import extract_clauses, normalize_text, split_sentences
+from metagraph_nlp.parsers.morphsyntax import MorphSyntaxParser, ParsedSentence
 from metagraph_nlp.provenance import AuditLog
 
 
@@ -29,6 +35,7 @@ from metagraph_nlp.provenance import AuditLog
 class PipelineResult:
     document: Document
     sentences: list[Sentence]
+    parsed_sentences: dict[str, ParsedSentence]
     clauses: list[Clause]
     graph: SemanticGraph
     metagraph: Metagraph
@@ -36,11 +43,18 @@ class PipelineResult:
     config: Config
 
 
+def _default_parser() -> MorphSyntaxParser:
+    from metagraph_nlp.parsers.morphsyntax.natasha_adapter import get_natasha_parser
+
+    return get_natasha_parser()
+
+
 def run(
     raw_text: str,
     *,
     config: Config | None = None,
     source_path: str | None = None,
+    parser: MorphSyntaxParser | None = None,
 ) -> PipelineResult:
     cfg = config or Config()
     cfg_hash = cfg.hash()
@@ -72,19 +86,36 @@ def run(
         outputs=[s.id for s in sentences],
     )
 
-    clauses = extract_clauses(sentences, ids)
+    # Морфо-синтаксический разбор каждого предложения. Ленивый fallback
+    # на natasha, если парсер не передали извне.
+    active_parser = parser or _default_parser()
+    parsed_sentences: dict[str, ParsedSentence] = {}
+    for s in sentences:
+        parsed_sentences[s.id] = active_parser.parse(s.span.text)
     audit.record(
-        "clauses",
-        "sentence_as_clause_v0",
+        "parse",
+        f"morphsyntax:{cfg.morphsyntax.parser}",
         inputs=[s.id for s in sentences],
-        outputs=[c.id for c in clauses],
-        notes="MVP stub: one clause per sentence",
+        outputs=[f"parsed:{s.id}" for s in sentences],
     )
 
-    graph = build_semantic_graph(document, clauses, ids)
+    clauses = extract_clauses(
+        sentences,
+        ids,
+        parsed_sentences=parsed_sentences,
+        strategy=cfg.clauses.strategy,
+    )
+    audit.record(
+        "clauses",
+        cfg.clauses.strategy,
+        inputs=[s.id for s in sentences],
+        outputs=[c.id for c in clauses],
+    )
+
+    graph = build_semantic_graph(document, clauses, parsed_sentences, ids)
     audit.record(
         "graph_builder",
-        "naive_head_dep_v0",
+        cfg.graph.builder,
         inputs=[c.id for c in clauses],
         outputs=[n.id for n in graph.nodes] + [e.id for e in graph.edges],
     )
@@ -97,9 +128,25 @@ def run(
         outputs=[mn.id for mn in metagraph.meta_nodes],
     )
 
+    if cfg.aggregation.shared_entity_enabled:
+        new_medges = build_shared_entity_metaedges(
+            metagraph,
+            graph,
+            ids,
+            min_lemma_len=cfg.aggregation.shared_entity_min_lemma_len,
+            exclude_upos=frozenset(cfg.aggregation.shared_entity_exclude_upos),
+        )
+        audit.record(
+            "aggregate",
+            "shared_entity_by_lemma_v0",
+            inputs=[mn.id for mn in metagraph.meta_nodes],
+            outputs=[me.id for me in new_medges],
+        )
+
     return PipelineResult(
         document=document,
         sentences=sentences,
+        parsed_sentences=parsed_sentences,
         clauses=clauses,
         graph=graph,
         metagraph=metagraph,
@@ -113,9 +160,10 @@ def run_from_file(
     out_dir: Path,
     config: Config | None = None,
     viz: bool = False,
+    parser: MorphSyntaxParser | None = None,
 ) -> PipelineResult:
     raw = input_path.read_text(encoding="utf-8")
-    result = run(raw, config=config, source_path=str(input_path))
+    result = run(raw, config=config, source_path=str(input_path), parser=parser)
     write_pipeline_artifacts(
         out_dir,
         document=result.document,

@@ -9,6 +9,9 @@ dependencies = [
     "pyyaml>=6.0",
     "razdel>=0.5",
     "pyvis>=0.3.2",
+    "natasha>=1.6",
+    "pymorphy3>=2.0",
+    "pymorphy3-dicts-ru>=2.4",
 ]
 
 [project.optional-dependencies]
@@ -45,3 +48,7 @@ files = ["src/metagraph_nlp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-m 'not slow'"
+markers = [
+    "slow: требует загруженных NLP-моделей (natasha/pymorphy3)",
+]

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pyvis.network import Network
 
-from metagraph_nlp.domain import Clause, Metagraph, SemanticGraph
+from metagraph_nlp.domain import Clause, Metagraph, Node, SemanticGraph
 from metagraph_nlp.viz.palette import color_for
 
 
@@ -43,16 +43,13 @@ def _clause_lookup(clauses: list[Clause]) -> dict[str, str]:
     return {c.id: c.span.text for c in clauses}
 
 
-def _node_tooltip(
-    *,
-    node_id: str,
-    label: str,
-    kind: str,
-    rule: str,
-    clause_text: str,
-) -> str:
+def _node_tooltip(node: Node, clause_text: str) -> str:
+    lemma_line = f"{node.label}"
+    if node.surface and node.surface != node.label:
+        lemma_line = f"{node.label} \u2190 {node.surface}"
+    upos = node.upos or node.kind
     return html_escape(
-        f"{node_id}\nlabel: {label}\nkind: {kind}\nrule: {rule}\n"
+        f"{node.id}\n{lemma_line}\nupos: {upos}\nrule: {node.provenance.rule}\n"
         f"clause: {clause_text}"
     )
 
@@ -72,13 +69,7 @@ def render_graph_html(
             label=n.label,
             color=color_for(n.clause_id),
             shape="ellipse",
-            title=_node_tooltip(
-                node_id=n.id,
-                label=n.label,
-                kind=n.kind,
-                rule=n.provenance.rule,
-                clause_text=by_clause.get(n.clause_id or "", ""),
-            ),
+            title=_node_tooltip(n, by_clause.get(n.clause_id or "", "")),
         )
 
     for e in graph.edges:
@@ -137,13 +128,7 @@ def render_metagraph_html(
             label=n.label,
             color=color,
             shape="ellipse",
-            title=_node_tooltip(
-                node_id=n.id,
-                label=n.label,
-                kind=n.kind,
-                rule=n.provenance.rule,
-                clause_text=by_clause.get(n.clause_id or "", ""),
-            ),
+            title=_node_tooltip(n, by_clause.get(n.clause_id or "", "")),
         )
 
     # Сплошные предикатные рёбра.
