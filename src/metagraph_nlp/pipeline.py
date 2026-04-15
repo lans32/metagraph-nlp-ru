@@ -112,6 +112,7 @@ def run_from_file(
     input_path: Path,
     out_dir: Path,
     config: Config | None = None,
+    viz: bool = False,
 ) -> PipelineResult:
     raw = input_path.read_text(encoding="utf-8")
     result = run(raw, config=config, source_path=str(input_path))
@@ -124,5 +125,6 @@ def run_from_file(
         metagraph=result.metagraph,
         audit=result.audit,
         config=result.config,
+        viz=viz,
     )
     return result

@@ -1,0 +1,18 @@
+"""Визуализация семантического графа и метаграфа.
+
+Модуль строго read-only относительно доменной модели (CLAUDE.md §7.1):
+никакого нового состояния в `domain/` не вводится. Два формата вывода:
+
+- интерактивный HTML через pyvis (для разработки и оценки результатов);
+- статический GraphViz DOT (для вставки в диплом/статью).
+"""
+
+from metagraph_nlp.viz.dot import graph_to_dot, metagraph_to_dot
+from metagraph_nlp.viz.html_pyvis import render_graph_html, render_metagraph_html
+
+__all__ = [
+    "graph_to_dot",
+    "metagraph_to_dot",
+    "render_graph_html",
+    "render_metagraph_html",
+]

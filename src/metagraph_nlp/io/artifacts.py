@@ -39,6 +39,7 @@ def write_pipeline_artifacts(
     metagraph: Metagraph,
     audit: AuditLog,
     config: Config,
+    viz: bool = False,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,3 +59,23 @@ def write_pipeline_artifacts(
         yaml.safe_dump(snapshot, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
+
+    if viz:
+        # Импорт лениво: pyvis тащит ipython и пр., незачем грузить если viz не нужен.
+        from metagraph_nlp.viz import (
+            graph_to_dot,
+            metagraph_to_dot,
+            render_graph_html,
+            render_metagraph_html,
+        )
+
+        (out_dir / "semantic_graph.dot").write_text(
+            graph_to_dot(graph, list(clauses)), encoding="utf-8"
+        )
+        (out_dir / "metagraph.dot").write_text(
+            metagraph_to_dot(metagraph, graph, list(clauses)), encoding="utf-8"
+        )
+        render_graph_html(graph, list(clauses), out_dir / "semantic_graph.html")
+        render_metagraph_html(
+            metagraph, graph, list(clauses), out_dir / "metagraph.html"
+        )

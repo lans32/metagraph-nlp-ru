@@ -20,6 +20,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--input", required=True, type=Path, help="Путь к входному .txt")
     p.add_argument("--out", required=True, type=Path, help="Каталог для артефактов")
     p.add_argument("--config", type=Path, default=None, help="YAML-конфиг (опционально)")
+    p.add_argument(
+        "--viz",
+        action="store_true",
+        help="Дополнительно сохранить HTML и DOT визуализации графа и метаграфа.",
+    )
 
     return parser
 
@@ -30,13 +35,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "process":
         config = load_config(args.config)
-        result = run_from_file(args.input, args.out, config=config)
+        result = run_from_file(args.input, args.out, config=config, viz=args.viz)
         print(f"[ok] document={result.document.id}")
         print(f"[ok] sentences={len(result.sentences)}")
         print(f"[ok] clauses={len(result.clauses)}")
         print(f"[ok] nodes={len(result.graph.nodes)} edges={len(result.graph.edges)}")
         print(f"[ok] meta_nodes={len(result.metagraph.meta_nodes)}")
         print(f"[ok] artifacts -> {args.out}")
+        if args.viz:
+            print(f"[ok] viz -> {args.out}")
         return 0
 
     parser.print_help()

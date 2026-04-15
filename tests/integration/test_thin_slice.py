@@ -51,3 +51,22 @@ def test_thin_slice_writes_artifacts(tmp_path: Path):
         p = out_dir / name
         assert p.exists(), f"missing artifact: {name}"
         assert p.stat().st_size > 0
+
+
+def test_thin_slice_writes_viz_artifacts(tmp_path: Path):
+    input_path = tmp_path / "input.txt"
+    input_path.write_text(SAMPLE, encoding="utf-8")
+    out_dir = tmp_path / "run_viz"
+
+    run_from_file(input_path, out_dir, config=Config(), viz=True)
+
+    viz_files = [
+        "semantic_graph.html",
+        "metagraph.html",
+        "semantic_graph.dot",
+        "metagraph.dot",
+    ]
+    for name in viz_files:
+        p = out_dir / name
+        assert p.exists(), f"missing viz artifact: {name}"
+        assert p.stat().st_size > 0

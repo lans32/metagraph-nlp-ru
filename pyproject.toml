@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.6",
     "pyyaml>=6.0",
     "razdel>=0.5",
+    "pyvis>=0.3.2",
 ]
 
 [project.optional-dependencies]
