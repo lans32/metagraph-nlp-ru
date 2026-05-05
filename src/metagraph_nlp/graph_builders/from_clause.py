@@ -115,6 +115,7 @@ def _make_node(
         surface=token.text,
         upos=token.pos,
         clause_id=clause.id,
+        token_id_in_sent=token.id_in_sent,
         provenance=prov,
     )
 

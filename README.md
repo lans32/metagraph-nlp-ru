@@ -5,7 +5,8 @@
 
 ```
 raw text → normalize → sentences → parse (UD) → clauses → semantic graph
-  → [NP collapse] → metagraph L1 (clause metanodes + shared_entity metaedges)
+  → [anaphora resolution] → [NP collapse]
+  → metagraph L1 (clause metanodes + shared_entity metaedges)
   → [coref clusters] → metagraph L2 (paragraphs + topic_overlap)
 ```
 
@@ -19,6 +20,7 @@ raw text → normalize → sentences → parse (UD) → clauses → semantic gra
 - **Типизация клауз**: main, coord, compl, xcompl, adverbial, relative, participial — по UD-deprel предиката.
 - **Многоуровневый метаграф**: L0 (узлы/рёбра) → L1 (клаузы, shared_entity) → L2 (параграфы, coref clusters, topic_overlap).
 - **NP collapse**: свёртка именных групп (NOUN + amod/nmod/det) в один узел с составной леммой.
+- **Разрешение анафоры**: rule-based замена личных местоимений 3-го лица (он/она/оно/они) на ближайший антецедент с согласованием по Gender / Number / Animacy.
 - **Три формата визуализации**: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes и инспектором.
 - **Пакетная обработка**: CLI-команда `batch` для каталога `.txt` файлов.
 - **Профилирование**: wall time + peak memory на каждую стадию pipeline.
@@ -109,6 +111,9 @@ pytest -m 'slow or not slow'  # все 84 теста
 | `aggregation.topic_overlap_enabled` | `true` | L2-метарёбра по пересечению фрагментов |
 | `aggregation.coref_cluster_enabled` | `false` | L2-метавершины по кластерам shared_entity |
 | `aggregation.np_collapse_enabled` | `false` | Свёртка именных групп перед агрегацией |
+| `anaphora.enabled` | `false` | Разрешение анафоры (личные местоимения 3-го лица) |
+| `anaphora.search_window_sentences` | `2` | Окно поиска антецедента в предложениях |
+| `anaphora.require_animacy_match` | `true` | Требовать совпадения Animacy PRON и антецедента |
 | `morphsyntax.parser` | `"natasha"` | UD-парсер: `natasha` или `maltparser` |
 
 ## Дневник разработки
@@ -118,3 +123,4 @@ pytest -m 'slow or not slow'  # все 84 теста
 - [2026-04-16 — UD-разбор, клаузы, метарёбра](docs/journal/2026-04-16-ud-and-metaedges.md)
 - [2026-04-19 — L2-параграфная агрегация](docs/journal/2026-04-19-l2-paragraph-aggregation.md)
 - [2026-05-05 — Девять задач для защиты](docs/journal/2026-05-05-diploma-features.md)
+- [2026-05-06 — Разрешение анафоры (v0)](docs/journal/2026-05-06-anaphora-resolution-v0.md)

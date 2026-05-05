@@ -22,6 +22,181 @@ def _load_config(config_file) -> Config:
     return Config()
 
 
+def _render_sidebar_config(config: Config) -> Config:
+    """Панель настроек pipeline в sidebar — структурированная, на русском."""
+
+    # ── Морфосинтаксический разбор ──
+    st.subheader("Морфосинтаксис")
+    parser_options = ["natasha", "maltparser"]
+    parser_labels = {
+        "natasha": "Natasha (рекомендуется, встроенные модели)",
+        "maltparser": "MaltParser (внешний JAR, требует Java)",
+    }
+    config.morphsyntax.parser = st.selectbox(
+        "Парсер",
+        options=parser_options,
+        index=parser_options.index(config.morphsyntax.parser)
+        if config.morphsyntax.parser in parser_options else 0,
+        format_func=lambda x: parser_labels.get(x, x),
+        help="Инструмент для морфологического и синтаксического анализа. "
+             "Natasha — чисто-Python пакет для русского языка, работает из коробки.",
+    )
+
+    # ── Клаузы ──
+    st.subheader("Выделение клауз")
+    clause_options = ["ud_subtree_clauses_v0", "sentence_as_clause_v0"]
+    clause_labels = {
+        "ud_subtree_clauses_v0": "По поддеревьям UD (основная стратегия)",
+        "sentence_as_clause_v0": "Одно предложение = одна клауза (упрощённая)",
+    }
+    config.clauses.strategy = st.selectbox(
+        "Стратегия",
+        options=clause_options,
+        index=clause_options.index(config.clauses.strategy)
+        if config.clauses.strategy in clause_options else 0,
+        format_func=lambda x: clause_labels.get(x, x),
+        help="UD-стратегия выделяет клаузы по финитным предикатам и их "
+             "поддеревьям. Упрощённая — берёт каждое предложение целиком.",
+    )
+
+    # ── Построение графа ──
+    st.subheader("Семантический граф")
+    builder_options = ["ud_roles_v0"]
+    builder_labels = {
+        "ud_roles_v0": "По UD-ролям (nsubj, obj, obl, nmod)",
+    }
+    config.graph.builder = st.selectbox(
+        "Билдер",
+        options=builder_options,
+        index=0,
+        format_func=lambda x: builder_labels.get(x, x),
+        help="Правило построения узлов и рёбер семантического графа из "
+             "UD-разбора клаузы.",
+    )
+
+    # ── Разрешение анафоры ──
+    st.subheader("Разрешение анафоры")
+    config.anaphora.enabled = st.toggle(
+        "Включить",
+        value=config.anaphora.enabled,
+        help="Личные местоимения 3-го лица (он, она, оно, они) заменяются "
+             "на ближайший антецедент с согласованием по роду, числу и одушевлённости.",
+    )
+    if config.anaphora.enabled:
+        config.anaphora.search_window_sentences = st.slider(
+            "Окно поиска антецедента",
+            min_value=1,
+            max_value=10,
+            value=config.anaphora.search_window_sentences,
+            help="Максимальное число предложений назад, в которых ищется "
+                 "подходящий антецедент для местоимения.",
+        )
+        config.anaphora.require_animacy_match = st.toggle(
+            "Требовать совпадения одушевлённости",
+            value=config.anaphora.require_animacy_match,
+            help="Если включено, антецедент должен совпадать с местоимением "
+                 "по признаку Animacy (Anim/Inan). Если выключено — "
+                 "используется только согласование Gender + Number.",
+        )
+
+    # ── Агрегация ──
+    st.subheader("Агрегация")
+
+    st.caption("**Предобработка графа**")
+    config.aggregation.np_collapse_enabled = st.toggle(
+        "Свёртка именных групп (NP collapse)",
+        value=config.aggregation.np_collapse_enabled,
+        help="Сворачивает цепочки NOUN + amod/nmod/det модификаторы в один "
+             "узел с составной леммой. Запускается до агрегации.",
+    )
+
+    st.caption("**Уровень L1 (клаузы → метавершины)**")
+    config.aggregation.linguistic_enabled = st.toggle(
+        "Лингвистическая агрегация",
+        value=config.aggregation.linguistic_enabled,
+        help="Каждая клауза сжимается в метавершину первого уровня "
+             "(правило clause_as_metanode_v0).",
+    )
+    config.aggregation.shared_entity_enabled = st.toggle(
+        "Метарёбра shared_entity",
+        value=config.aggregation.shared_entity_enabled,
+        help="Создаёт метарёбра между L1-метавершинами, если они содержат "
+             "общие леммы (правило shared_entity_by_lemma_v0).",
+    )
+    if config.aggregation.shared_entity_enabled:
+        config.aggregation.shared_entity_min_lemma_len = st.slider(
+            "Мин. длина леммы для shared_entity",
+            min_value=1,
+            max_value=10,
+            value=config.aggregation.shared_entity_min_lemma_len,
+            help="Леммы короче этого порога игнорируются при поиске "
+                 "общих сущностей (фильтрация предлогов, частиц и т.п.).",
+        )
+
+    st.caption("**Уровень L2 (параграфы, кластеры)**")
+    config.aggregation.paragraph_enabled = st.toggle(
+        "Метавершины по параграфам",
+        value=config.aggregation.paragraph_enabled,
+        help="Группирует L1-метавершины одного параграфа в L2-метавершину "
+             "(правило paragraph_clauses_v0).",
+    )
+    config.aggregation.coref_cluster_enabled = st.toggle(
+        "Кореферентные кластеры",
+        value=config.aggregation.coref_cluster_enabled,
+        help="Создаёт L2-метавершины из связных компонент графа shared_entity "
+             "(правило coref_cluster_v0).",
+    )
+    if config.aggregation.coref_cluster_enabled:
+        config.aggregation.coref_cluster_min_size = st.slider(
+            "Мин. размер кластера",
+            min_value=2,
+            max_value=10,
+            value=config.aggregation.coref_cluster_min_size,
+            help="Минимальное число L1-метавершин в кластере, "
+                 "чтобы он стал L2-метавершиной.",
+        )
+    config.aggregation.topic_overlap_enabled = st.toggle(
+        "Метарёбра topic_overlap",
+        value=config.aggregation.topic_overlap_enabled,
+        help="Создаёт L2-метарёбра между L2-метавершинами с "
+             "пересекающимися L1-фрагментами (правило topic_overlap_v0).",
+    )
+    if config.aggregation.topic_overlap_enabled:
+        config.aggregation.topic_overlap_min_overlap = st.slider(
+            "Мин. пересечение L1-фрагментов",
+            min_value=1,
+            max_value=10,
+            value=config.aggregation.topic_overlap_min_overlap,
+            help="Минимальное число общих L1-метавершин между двумя "
+                 "L2-метавершинами для создания метаребра.",
+        )
+
+    st.caption("**Экспериментальные стратегии**")
+    config.aggregation.structural_enabled = st.toggle(
+        "Структурная агрегация",
+        value=config.aggregation.structural_enabled,
+        help="Агрегация по повторяющимся подграфам / изоморфизму "
+             "(пока не реализована, зарезервировано).",
+        disabled=True,
+    )
+    config.aggregation.semantic_enabled = st.toggle(
+        "Семантическая агрегация",
+        value=config.aggregation.semantic_enabled,
+        help="Агрегация по косинусной близости в векторном пространстве "
+             "(пока не реализована, зарезервировано).",
+        disabled=True,
+    )
+
+    # ── Экспорт текущего конфига ──
+    st.divider()
+    with st.expander("Текущий конфиг (YAML)"):
+        config_dict = config.model_dump()
+        st.code(yaml.dump(config_dict, allow_unicode=True, default_flow_style=False),
+                language="yaml")
+
+    return config
+
+
 def main() -> None:
     st.set_page_config(
         page_title="Metagraph NLP",
@@ -32,11 +207,15 @@ def main() -> None:
 
     # --- Sidebar: config ---
     with st.sidebar:
-        st.header("Настройки")
-        config_file = st.file_uploader("Конфиг (YAML)", type=["yaml", "yml"])
+        st.header("Конфигурация pipeline")
+        config_file = st.file_uploader(
+            "Загрузить конфиг (YAML)",
+            type=["yaml", "yml"],
+            help="Загрузите свой YAML-файл конфигурации или настройте "
+                 "параметры ниже вручную.",
+        )
         config = _load_config(config_file)
-        with st.expander("Текущий конфиг"):
-            st.json(config.model_dump())
+        config = _render_sidebar_config(config)
 
     # --- Input ---
     tab_text, tab_file = st.tabs(["Ввод текста", "Загрузка файла"])
@@ -114,6 +293,29 @@ def main() -> None:
                     height=700,
                     scrolling=True,
                 )
+
+        # --- Anaphora resolutions ---
+        if result.anaphora_resolutions is not None:
+            with st.expander(
+                f"Разрешение анафоры ({len(result.anaphora_resolutions)})"
+            ):
+                if result.anaphora_resolutions:
+                    anaphora_data = [
+                        {
+                            "Местоимение": r.pronoun_surface,
+                            "Антецедент": r.antecedent_lemma,
+                            "Признаки": ", ".join(
+                                f"{k}={v}" for k, v in r.matched_features.items()
+                            ),
+                            "Δ предложений": r.distance_sentences,
+                            "PRON id": r.pronoun_node_id,
+                            "Антецедент id": r.antecedent_node_id,
+                        }
+                        for r in result.anaphora_resolutions
+                    ]
+                    st.dataframe(anaphora_data, use_container_width=True)
+                else:
+                    st.info("Подходящих местоимений не найдено.")
 
         # --- Clauses table ---
         with st.expander("Клаузы"):

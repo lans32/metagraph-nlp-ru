@@ -14,6 +14,13 @@ clauses:
 graph:
   builder: ud_roles_v0
 
+anaphora:
+  enabled: false
+  search_window_sentences: 2
+  require_animacy_match: true
+  pronoun_types:
+    - personal_3p
+
 aggregation:
   linguistic_enabled: true
   structural_enabled: false

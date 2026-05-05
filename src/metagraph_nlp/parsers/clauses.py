@@ -115,7 +115,13 @@ def _is_participial(token: Token) -> bool:
 
 
 def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
-    """Предикаты клауз: финитные VERB + причастия с deprel acl/acl:relcl."""
+    """Предикаты клауз: финитные VERB + причастия в предикативных позициях.
+
+    Причастие считается предикатом, если:
+    - deprel=root (краткое причастие как именное сказуемое);
+    - deprel in _SUBORDINATE_CLAUSE_DEPRELS (вложенная клауза);
+    - deprel in (acl, acl:relcl) (причастный оборот).
+    """
     predicates: list[Token] = []
     seen: set[int] = set()
 
@@ -139,9 +145,14 @@ def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
                 seen.add(t.id_in_sent)
             continue
 
-        if _is_participial(t) and t.deprel in ("acl", "acl:relcl"):
-            predicates.append(t)
-            seen.add(t.id_in_sent)
+        if _is_participial(t):
+            if t.deprel in ("root", "conj") or t.deprel in _SUBORDINATE_CLAUSE_DEPRELS:
+                predicates.append(t)
+                seen.add(t.id_in_sent)
+                continue
+            if t.deprel in ("acl", "acl:relcl"):
+                predicates.append(t)
+                seen.add(t.id_in_sent)
 
     return predicates
 
@@ -188,8 +199,13 @@ def _extract_ud_clauses(
         tokens = [t for t in tokens if t is not None]
         if not tokens:
             continue
-        local_start = min(t.start for t in tokens)
-        local_end = max(t.end for t in tokens)
+        # PUNCT не влияет на границы span клаузы — иначе финальная точка
+        # расширяет главную клаузу до конца предложения.
+        content_tokens = [t for t in tokens if t.pos != "PUNCT"]
+        if not content_tokens:
+            content_tokens = tokens
+        local_start = min(t.start for t in content_tokens)
+        local_end = max(t.end for t in content_tokens)
 
         sent_text = sentence.span.text
         # Границы берём из токенов; текст режем по спану предложения.

@@ -24,6 +24,7 @@ from metagraph_nlp.aggregators import (
 )
 from metagraph_nlp.config import Config
 from metagraph_nlp.domain import (
+    AnaphoraResolution,
     Clause,
     Document,
     IdFactory,
@@ -35,7 +36,12 @@ from metagraph_nlp.domain import (
 from metagraph_nlp.graph_builders import build_semantic_graph
 from metagraph_nlp.graph_builders.np_collapse import collapse_noun_phrases
 from metagraph_nlp.io import write_pipeline_artifacts
-from metagraph_nlp.parsers import extract_clauses, normalize_text, split_sentences
+from metagraph_nlp.parsers import (
+    extract_clauses,
+    normalize_text,
+    resolve_anaphora,
+    split_sentences,
+)
 from metagraph_nlp.parsers.morphsyntax import MorphSyntaxParser, ParsedSentence
 from metagraph_nlp.profiling import PipelineMetrics, measure_stage
 from metagraph_nlp.provenance import AuditLog
@@ -52,6 +58,7 @@ class PipelineResult:
     audit: AuditLog
     config: Config
     metrics: PipelineMetrics | None = None
+    anaphora_resolutions: list[AnaphoraResolution] | None = None
 
 
 def get_default_parser(cfg: Config | None = None) -> MorphSyntaxParser:
@@ -163,6 +170,31 @@ def run(
     )
     logger.info("graph: %d nodes, %d edges", len(graph.nodes), len(graph.edges))
 
+    anaphora_resolutions: list[AnaphoraResolution] | None = None
+    if cfg.anaphora.enabled:
+        with measure_stage("anaphora_resolution", metrics) as sm:
+            graph, anaphora_resolutions = resolve_anaphora(
+                graph,
+                clauses,
+                sentences,
+                parsed_sentences,
+                ids,
+                search_window_sentences=cfg.anaphora.search_window_sentences,
+                require_animacy_match=cfg.anaphora.require_animacy_match,
+            )
+            sm.output_count = len(anaphora_resolutions)
+        audit.record(
+            "anaphora_resolution",
+            "anaphora_resolution_v0",
+            inputs=[r.pronoun_node_id for r in anaphora_resolutions],
+            outputs=[r.antecedent_node_id for r in anaphora_resolutions],
+        )
+        logger.info(
+            "anaphora: %d pronouns resolved, %d nodes remain",
+            len(anaphora_resolutions),
+            len(graph.nodes),
+        )
+
     if cfg.aggregation.np_collapse_enabled:
         with measure_stage("np_collapse", metrics) as sm:
             graph = collapse_noun_phrases(graph, parsed_sentences, clauses, ids)
@@ -262,6 +294,7 @@ def run(
         audit=audit,
         config=cfg,
         metrics=metrics,
+        anaphora_resolutions=anaphora_resolutions,
     )
 
 
@@ -285,5 +318,6 @@ def run_from_file(
         config=result.config,
         viz=viz,
         metrics=result.metrics,
+        anaphora_resolutions=result.anaphora_resolutions,
     )
     return result

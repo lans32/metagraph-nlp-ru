@@ -38,7 +38,8 @@
 
 ```
 raw text → normalize → sentences → parse (UD) → clauses (typed)
-  → semantic graph → [NP collapse] → metagraph L1 (clause metanodes + shared_entity)
+  → semantic graph → [anaphora resolution] → [NP collapse]
+  → metagraph L1 (clause metanodes + shared_entity)
   → [coref clusters] → metagraph L2 (paragraphs + topic_overlap)
 ```
 
@@ -52,14 +53,15 @@ raw text → normalize → sentences → parse (UD) → clauses (typed)
 4. морфо-синтаксический разбор (natasha или MaltParser);
 5. выделение типизированных клауз (main, coord, compl, xcompl, adverbial, relative, participial);
 6. построение ориентированного семантического графа по UD-ролям;
-7. опциональная свёртка именных групп (NP collapse);
-8. многоуровневая агрегация: L1 (clause metanodes, shared_entity metaedges), L2 (paragraph metanodes, coref cluster metanodes, topic_overlap metaedges);
-9. сохранение промежуточных артефактов (JSON, JSONL, YAML);
-10. профилирование (wall time + peak memory на стадию);
-11. audit trail с UTC-timestamps;
-12. визуализация: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes;
-13. Streamlit веб-интерфейс;
-14. CLI-команды `process` и `batch`.
+7. опциональное разрешение анафоры (личные местоимения 3-го лица → антецедент по Gender/Number/Animacy);
+8. опциональная свёртка именных групп (NP collapse);
+9. многоуровневая агрегация: L1 (clause metanodes, shared_entity metaedges), L2 (paragraph metanodes, coref cluster metanodes, topic_overlap metaedges);
+10. сохранение промежуточных артефактов (JSON, JSONL, YAML);
+11. профилирование (wall time + peak memory на стадию);
+12. audit trail с UTC-timestamps;
+13. визуализация: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes;
+14. Streamlit веб-интерфейс;
+15. CLI-команды `process` и `batch`.
 
 Что не входит в текущий scope:
 
@@ -208,7 +210,12 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - `shared_entity_by_lemma_v0` — общие леммы → L1-метарёбра;
 - `paragraph_clauses_v0` — параграф → L2-метавершина;
 - `coref_cluster_v0` — connected components по shared_entity → L2-метавершины;
-- `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра.
+- `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра;
+- `anaphora_resolution_v0` — личные местоимения 3-го лица заменяются на
+  ближайший антецедент с согласованием по Gender / Number / Animacy;
+  PRON-узел удаляется, рёбра перенаправляются на антецедент, в provenance
+  фиксируется исходный pronoun_id (CLAUDE.md §9.4 «no silent collapse»).
+  Запускается до агрегации, управляется конфигом `anaphora.enabled`.
 
 ### 5.2. Structural aggregation
 
@@ -525,7 +532,10 @@ OCR не считается частью семантического анали
 - нормализацию текста;
 - сегментацию на предложения (с paragraph_index);
 - выделение типизированных клауз (стратегии `ud_subtree_clauses_v0`, `sentence_as_clause_v0`);
-- адаптеры morphsyntax: `MorphSyntaxParser` Protocol, `natasha_adapter`, `maltparser_adapter`.
+- адаптеры morphsyntax: `MorphSyntaxParser` Protocol, `natasha_adapter`, `maltparser_adapter`;
+- разрешение анафоры (`anaphora.py`, правило `anaphora_resolution_v0`):
+  rule-based замена личных местоимений 3-го лица на согласованный
+  антецедент по Gender / Number / Animacy.
 
 ### 12.2. `graph_builders/`
 
@@ -555,10 +565,11 @@ OCR не считается частью семантического анали
 Содержит ядро модели:
 
 - `Document`, `Sentence`, `Clause` (с `clause_type`)
-- `Node`, `Edge`
+- `Node` (с `token_id_in_sent` — якорь к UD-feats), `Edge`
 - `MetaNode`, `MetaEdge`
 - `GraphFragment`
 - `SemanticGraph`, `Metagraph`
+- `AnaphoraResolution` (запись о замене местоимения на антецедент)
 - `Provenance`, `IdFactory`
 
 ### 12.6. `io/`

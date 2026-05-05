@@ -28,6 +28,10 @@ class Node(BaseModel):
         description="Универсальная часть речи (NOUN, PROPN, VERB, ...).",
     )
     clause_id: str | None = None
+    token_id_in_sent: int | None = Field(
+        default=None,
+        description="id_in_sent исходного UD-токена (нумерация с 1) для якоря к feats.",
+    )
     provenance: Provenance
 
 

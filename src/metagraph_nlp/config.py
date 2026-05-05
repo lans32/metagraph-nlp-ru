@@ -76,6 +76,29 @@ class AggregationConfig(BaseModel):
     )
 
 
+class AnaphoraConfig(BaseModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Включить разрешение анафоры (anaphora_resolution_v0): "
+            "заменять личные местоимения 3-го лица на найденные антецеденты."
+        ),
+    )
+    search_window_sentences: int = Field(
+        default=2,
+        ge=1,
+        description="Сколько предложений назад от местоимения искать антецедент.",
+    )
+    require_animacy_match: bool = Field(
+        default=True,
+        description="Требовать совпадения Animacy (Anim/Inan) PRON-токена и антецедента.",
+    )
+    pronoun_types: list[str] = Field(
+        default_factory=lambda: ["personal_3p"],
+        description="Типы покрываемых местоимений (v0: только personal_3p).",
+    )
+
+
 class PathsConfig(BaseModel):
     data_dir: str = "data"
     artifacts_dir: str = "artifacts"
@@ -87,6 +110,7 @@ class Config(BaseModel):
     morphsyntax: MorphSyntaxConfig = Field(default_factory=MorphSyntaxConfig)
     clauses: ClauseConfig = Field(default_factory=ClauseConfig)
     graph: GraphConfig = Field(default_factory=GraphConfig)
+    anaphora: AnaphoraConfig = Field(default_factory=AnaphoraConfig)
     aggregation: AggregationConfig = Field(default_factory=AggregationConfig)
     log_level: str = "INFO"
 

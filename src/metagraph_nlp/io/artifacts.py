@@ -12,6 +12,7 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from metagraph_nlp.config import Config
     from metagraph_nlp.domain import (
+        AnaphoraResolution,
         Clause,
         Document,
         Metagraph,
@@ -43,6 +44,7 @@ def write_pipeline_artifacts(
     config: Config,
     viz: bool = False,
     metrics: PipelineMetrics | None = None,
+    anaphora_resolutions: list[AnaphoraResolution] | None = None,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -51,6 +53,11 @@ def write_pipeline_artifacts(
     _write_jsonl(out_dir / "clauses.jsonl", list(clauses))
     _write_json(out_dir / "semantic_graph.json", graph)
     _write_json(out_dir / "metagraph.json", metagraph)
+
+    if anaphora_resolutions is not None:
+        _write_jsonl(
+            out_dir / "anaphora_resolutions.jsonl", list(anaphora_resolutions)
+        )
 
     (out_dir / "audit.jsonl").write_text(audit.to_jsonl(), encoding="utf-8")
 
