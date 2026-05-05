@@ -75,7 +75,8 @@ def metagraph_to_dot(
         '  edge [fontname="Helvetica"];',
     ]
 
-    # Слой 1: метавершины (большие квадраты).
+    # Слой метавершин. L1 — прямоугольники; L2+ — прямоугольники с жирной рамкой
+    # (визуально отличаем уровни, не полагаясь только на тултипы).
     for mn in metagraph.meta_nodes:
         color = color_for(mn.id)
         clause_text = by_clause.get(mn.provenance.clause_id or "", "")
@@ -84,9 +85,11 @@ def metagraph_to_dot(
             f"rule={mn.provenance.rule} | clause: {clause_text}"
         )
         label = _escape((mn.label or mn.id)[:40])
+        penwidth = 1 + mn.level  # level=1 → 2, level=2 → 3, и т.д.
         lines.append(
             f'  "{mn.id}" [shape=box, style="filled,rounded", '
-            f'fillcolor="{color}", label="{label}", tooltip="{tooltip}"];'
+            f'fillcolor="{color}", label="{label}", '
+            f'penwidth={penwidth}, tooltip="{tooltip}"];'
         )
 
     # Слой 0: обычные узлы графа, окрашенные цветом «своей» метавершины.
@@ -122,6 +125,7 @@ def metagraph_to_dot(
             )
 
     # Пунктирные contains-рёбра от метавершин к их членам (§9.4 no silent collapse).
+    # L1: meta → L0 узлы (node_ids); L2+: meta → L1 meta (meta_node_ids).
     for mn in metagraph.meta_nodes:
         for nid in mn.fragment.node_ids:
             lines.append(
@@ -129,14 +133,25 @@ def metagraph_to_dot(
                 f'[style="dashed", arrowhead=none, color="#888888", '
                 f'label="contains"];'
             )
+        for child_mid in mn.fragment.meta_node_ids:
+            lines.append(
+                f'  "{mn.id}" -> "{child_mid}" '
+                f'[style="dashed", arrowhead=none, color="#555555", '
+                f'label="contains"];'
+            )
 
-    # Метарёбра (двойная стрелка). На уровне 1 их пока нет, но рендер готов.
+    # Метарёбра. shared_entity — серая жирная стрелка; topic_overlap — синий пунктир.
     for me in metagraph.meta_edges:
-        tooltip = _escape(f"{me.id} | type={me.type} | rule={me.provenance.rule}")
+        tooltip = _escape(
+            f"{me.id} | type={me.type} | level={me.level} | rule={me.provenance.rule}"
+        )
+        if me.type == "topic_overlap":
+            style = 'penwidth=2, color="#2a6df4", style="dashed"'
+        else:
+            style = 'penwidth=2, color="#222222"'
         lines.append(
             f'  "{me.source}" -> "{me.target}" '
-            f'[label="{_escape(me.relation)}", penwidth=2, color="#222222", '
-            f'tooltip="{tooltip}"];'
+            f'[label="{_escape(me.relation)}", {style}, tooltip="{tooltip}"];'
         )
 
     lines.append("}")

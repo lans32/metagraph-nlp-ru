@@ -36,6 +36,11 @@ class Sentence(BaseModel):
     index: int
     span: TextSpan
     provenance: Provenance
+    paragraph_index: int = Field(
+        default=0,
+        ge=0,
+        description="Индекс параграфа в документе (границы — пустые строки).",
+    )
 
 
 class Clause(BaseModel):

@@ -12,7 +12,9 @@ from pathlib import Path
 
 from metagraph_nlp.aggregators import (
     aggregate_clauses_to_metanodes,
+    aggregate_clauses_to_paragraphs,
     build_shared_entity_metaedges,
+    build_topic_overlap_metaedges,
 )
 from metagraph_nlp.config import Config
 from metagraph_nlp.domain import (
@@ -141,6 +143,30 @@ def run(
             "shared_entity_by_lemma_v0",
             inputs=[mn.id for mn in metagraph.meta_nodes],
             outputs=[me.id for me in new_medges],
+        )
+
+    if cfg.aggregation.paragraph_enabled:
+        new_l2_nodes = aggregate_clauses_to_paragraphs(
+            metagraph, clauses, sentences, ids
+        )
+        audit.record(
+            "aggregate",
+            "paragraph_clauses_v0",
+            inputs=[c.id for c in clauses],
+            outputs=[mn.id for mn in new_l2_nodes],
+        )
+
+    if cfg.aggregation.topic_overlap_enabled:
+        new_l2_medges = build_topic_overlap_metaedges(
+            metagraph,
+            ids,
+            min_overlap=cfg.aggregation.topic_overlap_min_overlap,
+        )
+        audit.record(
+            "aggregate",
+            "topic_overlap_v0",
+            inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 2],
+            outputs=[me.id for me in new_l2_medges],
         )
 
     return PipelineResult(

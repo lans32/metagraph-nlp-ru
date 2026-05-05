@@ -28,5 +28,8 @@ aggregation:
     - CCONJ
     - SCONJ
     - PART
+  paragraph_enabled: true
+  topic_overlap_enabled: true
+  topic_overlap_min_overlap: 1
 
 log_level: INFO

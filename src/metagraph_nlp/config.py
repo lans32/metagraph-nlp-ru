@@ -51,6 +51,18 @@ class AggregationConfig(BaseModel):
     shared_entity_exclude_upos: list[str] = Field(
         default_factory=lambda: ["PRON", "DET", "ADP", "AUX", "CCONJ", "SCONJ", "PART"],
     )
+    paragraph_enabled: bool = Field(
+        default=True,
+        description="Создавать L2-метавершины по параграфам (paragraph_clauses_v0).",
+    )
+    topic_overlap_enabled: bool = Field(
+        default=True,
+        description=(
+            "Создавать L2-метарёбра topic_overlap между L2-метавершинами с "
+            "пересекающимися L1-фрагментами."
+        ),
+    )
+    topic_overlap_min_overlap: int = 1
 
 
 class PathsConfig(BaseModel):

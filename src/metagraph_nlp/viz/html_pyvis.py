@@ -95,7 +95,8 @@ def render_metagraph_html(
     node_index = graph.node_index()
     net = _new_network()
 
-    # Слой 1: метавершины.
+    # Слой метавершин. L1 и L2+ рендерятся одинаково, но с разной толщиной
+    # рамки — чтобы уровень был виден без тултипа.
     for mn in metagraph.meta_nodes:
         color = color_for(mn.id)
         clause_text = by_clause.get(mn.provenance.clause_id or "", "")
@@ -110,7 +111,7 @@ def render_metagraph_html(
             color=color,
             shape="box",
             title=title,
-            borderWidth=3,
+            borderWidth=2 + mn.level,
             font={"size": 18, "bold": True},
         )
 
@@ -142,7 +143,7 @@ def render_metagraph_html(
                 arrows="to",
             )
 
-    # Пунктирные contains-рёбра — метавершина → её узлы.
+    # Пунктирные contains-рёбра — метавершина → её узлы или дочерние метавершины.
     for mn in metagraph.meta_nodes:
         for nid in mn.fragment.node_ids:
             net.add_edge(
@@ -154,9 +155,20 @@ def render_metagraph_html(
                 arrows="",
                 title=html_escape(f"{mn.id} contains {nid}"),
             )
+        for child_mid in mn.fragment.meta_node_ids:
+            net.add_edge(
+                mn.id,
+                child_mid,
+                label="contains",
+                dashes=True,
+                color="#555555",
+                arrows="",
+                title=html_escape(f"{mn.id} contains {child_mid}"),
+            )
 
-    # Метарёбра (на уровне 1 пока пусто, но контракт готов).
+    # Метарёбра. shared_entity — чёрное; topic_overlap — синее пунктирное.
     for me in metagraph.meta_edges:
+        color = "#2a6df4" if me.type == "topic_overlap" else "#222222"
         net.add_edge(
             me.source,
             me.target,
@@ -166,7 +178,8 @@ def render_metagraph_html(
             ),
             arrows="to",
             width=3,
-            color="#222222",
+            color=color,
+            dashes=(me.type == "topic_overlap"),
         )
 
     _write(net, out_path)

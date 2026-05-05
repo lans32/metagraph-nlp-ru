@@ -35,22 +35,35 @@ def test_thin_slice_in_memory():
     labels = {n.label for n in result.graph.nodes}
     assert "студент" in labels
 
-    assert len(result.metagraph.meta_nodes) == len(result.clauses)
-    for mn in result.metagraph.meta_nodes:
+    l1_nodes = [mn for mn in result.metagraph.meta_nodes if mn.level == 1]
+    l2_nodes = [mn for mn in result.metagraph.meta_nodes if mn.level == 2]
+    assert len(l1_nodes) == len(result.clauses)
+    for mn in l1_nodes:
         assert mn.type == "clause"
-        assert mn.level == 1
+
+    # SAMPLE — одно-параграфный: ровно одна L2-метавершина типа "paragraph".
+    assert len(l2_nodes) == 1
+    assert l2_nodes[0].type == "paragraph"
+    assert l2_nodes[0].label == "paragraph_0"
+    assert set(l2_nodes[0].fragment.meta_node_ids) == {mn.id for mn in l1_nodes}
 
     rule_names = {e.rule for e in result.audit.events}
     assert "normalize_text" in rule_names
     assert "razdel.sentenize" in rule_names
     assert "ud_subtree_clauses_v0" in rule_names
     assert "ud_roles_v0" in rule_names
+    assert "paragraph_clauses_v0" in rule_names
+    assert "topic_overlap_v0" in rule_names
 
     # «студент» встречается в первой и второй клаузах — должно быть
     # хотя бы одно метаребро shared_entity.
-    assert len(result.metagraph.meta_edges) >= 1
     shared = [me for me in result.metagraph.meta_edges if me.type == "shared_entity"]
     assert shared, "ожидается хотя бы одно метаребро shared_entity"
+
+    # На параграфной стратегии L2-метавершины не пересекаются по L1-клаузам,
+    # поэтому topic_overlap рёбер быть не должно.
+    topic = [me for me in result.metagraph.meta_edges if me.type == "topic_overlap"]
+    assert topic == []
 
 
 def test_thin_slice_writes_artifacts(tmp_path: Path):
