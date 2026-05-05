@@ -39,7 +39,7 @@ def test_thin_slice_in_memory():
     l2_nodes = [mn for mn in result.metagraph.meta_nodes if mn.level == 2]
     assert len(l1_nodes) == len(result.clauses)
     for mn in l1_nodes:
-        assert mn.type == "clause"
+        assert mn.type.startswith("clause:")
 
     # SAMPLE — одно-параграфный: ровно одна L2-метавершина типа "paragraph".
     assert len(l2_nodes) == 1

@@ -35,8 +35,10 @@ class GraphConfig(BaseModel):
 class MorphSyntaxConfig(BaseModel):
     parser: str = Field(
         default="natasha",
-        description="Имя реализации `MorphSyntaxParser`: сейчас только `natasha`.",
+        description="Имя реализации `MorphSyntaxParser`: natasha | maltparser.",
     )
+    malt_jar: str | None = Field(default=None, description="Путь к maltparser.jar")
+    malt_model: str | None = Field(default=None, description="Путь к модели MaltParser")
 
 
 class AggregationConfig(BaseModel):
@@ -63,6 +65,15 @@ class AggregationConfig(BaseModel):
         ),
     )
     topic_overlap_min_overlap: int = 1
+    coref_cluster_enabled: bool = Field(
+        default=False,
+        description="Создавать L2-метавершины по кластерам shared_entity (coref_cluster_v0).",
+    )
+    coref_cluster_min_size: int = 2
+    np_collapse_enabled: bool = Field(
+        default=False,
+        description="Сворачивать именные группы (NP) в один узел графа перед агрегацией.",
+    )
 
 
 class PathsConfig(BaseModel):

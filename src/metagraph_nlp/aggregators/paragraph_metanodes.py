@@ -62,7 +62,7 @@ def aggregate_clauses_to_paragraphs(
     sents_by_para: dict[int, set[str]] = defaultdict(set)
     doc_id: str | None = None
     for mn in metagraph.meta_nodes:
-        if mn.level != 1 or mn.type != "clause":
+        if mn.level != 1 or not mn.type.startswith("clause"):
             continue
         cid = mn.provenance.clause_id
         if cid is None or cid not in clause_para:

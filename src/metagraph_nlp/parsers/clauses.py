@@ -110,32 +110,64 @@ def _is_finite_verb(token: Token) -> bool:
     return verb_form in (None, "Fin")
 
 
+def _is_participial(token: Token) -> bool:
+    return token.pos == "VERB" and token.feats.get("VerbForm") == "Part"
+
+
 def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
-    """Финитные VERB-предикаты: root, conj-VERB и подчинённые клаузные VERB."""
+    """Предикаты клауз: финитные VERB + причастия с deprel acl/acl:relcl."""
     predicates: list[Token] = []
     seen: set[int] = set()
 
     for t in parsed.tokens:
-        if not _is_finite_verb(t):
+        if t.id_in_sent in seen:
             continue
-        if t.deprel == "root":
-            if t.id_in_sent not in seen:
+
+        if _is_finite_verb(t):
+            if t.deprel == "root":
                 predicates.append(t)
                 seen.add(t.id_in_sent)
-            continue
-        if t.deprel == "conj":
-            head = parsed.by_id(t.head)
-            if head is not None and head.pos == "VERB":
-                if t.id_in_sent not in seen:
+                continue
+            if t.deprel == "conj":
+                head = parsed.by_id(t.head)
+                if head is not None and head.pos == "VERB":
                     predicates.append(t)
                     seen.add(t.id_in_sent)
-            continue
-        if t.deprel in _SUBORDINATE_CLAUSE_DEPRELS:
-            if t.id_in_sent not in seen:
+                continue
+            if t.deprel in _SUBORDINATE_CLAUSE_DEPRELS:
                 predicates.append(t)
                 seen.add(t.id_in_sent)
+            continue
+
+        if _is_participial(t) and t.deprel in ("acl", "acl:relcl"):
+            predicates.append(t)
+            seen.add(t.id_in_sent)
 
     return predicates
+
+
+def _determine_clause_type(pred: Token, parsed: ParsedSentence) -> str:
+    """Лингвистический тип клаузы по deprel предиката и морфологии."""
+    if pred.deprel == "root":
+        return "main"
+    if pred.deprel == "conj":
+        head = parsed.by_id(pred.head)
+        if head is not None and head.pos == "VERB":
+            return "coord"
+        return "other"
+    if pred.deprel == "ccomp":
+        return "compl"
+    if pred.deprel == "xcomp":
+        return "xcompl"
+    if pred.deprel == "advcl":
+        return "adverbial"
+    if pred.deprel == "acl:relcl":
+        return "relative"
+    if pred.deprel == "acl":
+        if pred.feats.get("VerbForm") == "Part":
+            return "participial"
+        return "relative"
+    return "other"
 
 
 def _extract_ud_clauses(
@@ -165,6 +197,7 @@ def _extract_ud_clauses(
         global_start = sentence.span.start + local_start
         global_end = sentence.span.start + local_end
 
+        ct = _determine_clause_type(pred, parsed)
         clauses.append(
             Clause(
                 id=ids.clause(),
@@ -173,13 +206,14 @@ def _extract_ud_clauses(
                 span=TextSpan(start=global_start, end=global_end, text=clause_text),
                 head_text=pred.text,
                 head_lemma=pred.lemma,
+                clause_type=ct,
                 provenance=Provenance(
                     rule=_RULE_UD_SUBTREE,
                     stage=_STAGE,
                     inputs=[sentence.id],
                     document_id=sentence.document_id,
                     sentence_id=sentence.id,
-                    notes=f"predicate={pred.lemma}",
+                    notes=f"predicate={pred.lemma}, type={ct}",
                 ),
             )
         )

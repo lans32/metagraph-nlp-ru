@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
         SemanticGraph,
         Sentence,
     )
+    from metagraph_nlp.profiling import PipelineMetrics
     from metagraph_nlp.provenance import AuditLog
 
 
@@ -40,6 +42,7 @@ def write_pipeline_artifacts(
     audit: AuditLog,
     config: Config,
     viz: bool = False,
+    metrics: PipelineMetrics | None = None,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -60,11 +63,18 @@ def write_pipeline_artifacts(
         encoding="utf-8",
     )
 
+    if metrics is not None:
+        (out_dir / "profiling.json").write_text(
+            json.dumps(metrics.to_dict(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
     if viz:
         # Импорт лениво: pyvis тащит ipython и пр., незачем грузить если viz не нужен.
         from metagraph_nlp.viz import (
             graph_to_dot,
             metagraph_to_dot,
+            render_cytoscape_html,
             render_graph_html,
             render_metagraph_html,
         )
@@ -78,4 +88,7 @@ def write_pipeline_artifacts(
         render_graph_html(graph, list(clauses), out_dir / "semantic_graph.html")
         render_metagraph_html(
             metagraph, graph, list(clauses), out_dir / "metagraph.html"
+        )
+        render_cytoscape_html(
+            metagraph, graph, list(clauses), out_dir / "metagraph_cytoscape.html"
         )

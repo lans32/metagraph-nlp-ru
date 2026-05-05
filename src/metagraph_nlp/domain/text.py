@@ -62,4 +62,8 @@ class Clause(BaseModel):
         default=None,
         description="Лемма предикативного центра.",
     )
+    clause_type: str | None = Field(
+        default=None,
+        description="Лингвистический тип клаузы: main, coord, compl, xcompl, adverbial, relative, participial.",
+    )
     provenance: Provenance

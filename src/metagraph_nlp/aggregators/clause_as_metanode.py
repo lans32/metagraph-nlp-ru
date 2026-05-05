@@ -52,10 +52,11 @@ def aggregate_clauses_to_metanodes(
             edge_ids=edges_by_clause.get(clause.id, []),
         )
         empty = not fragment.node_ids and not fragment.edge_ids
+        clause_type_suffix = clause.clause_type or "untyped"
         mg.meta_nodes.append(
             MetaNode(
                 id=ids.mnode(),
-                type="clause",
+                type=f"clause:{clause_type_suffix}",
                 level=1,
                 label=clause.head_text or clause.span.text[:60],
                 fragment=fragment,

@@ -20,6 +20,9 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+web = [
+    "streamlit>=1.30",
+]
 
 [project.scripts]
 metagraph-nlp = "metagraph_nlp.cli:main"
