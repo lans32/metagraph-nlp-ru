@@ -99,8 +99,114 @@ anaphora:
    Lappin–Leass: + веса за роль (nsubj > obj > obl) и за повторное
    упоминание.
 
+---
+
+## Исправление выделения клауз с причастиями
+
+### Задача
+
+Предложение «Он был ярко-красным, словно горящим в последних лучах
+заката.» обрабатывалось как одна клауза с типом `untyped`. Ожидалось
+две клаузы: основная и сравнительная.
+
+### Причина
+
+`_collect_predicates` не распознавал причастия (VerbForm=Part) в
+позициях, отличных от `acl` / `acl:relcl`:
+
+- **«ярко-красным»**: natasha разбирает как VERB/Part с deprel=root
+  (краткое страдательное причастие в роли именного сказуемого) — но
+  для причастий проверялись только deprel `acl`/`acl:relcl`, root
+  не подхватывался.
+- **«горящим»**: VERB/Part с deprel=xcomp — аналогично терялся,
+  потому что `_is_finite_verb` отсекает Part, а `_is_participial`
+  проверяла только `acl`-позиции.
+- **«был»**: POS=AUX (копула), не VERB — не подхватывался вообще.
+
+В итоге ни один токен не распознавался как предикат → fallback на
+`_sentence_as_clause` → одна `untyped` клауза на всё предложение.
+
+Дополнительно: финальная точка (PUNCT, deprel=punct, head=root)
+включалась в расчёт span клаузы, из-за чего текст главной клаузы
+растягивался до конца предложения.
+
+### Что изменено
+
+1. **`_collect_predicates`** (`clauses.py:117–157`): причастия с
+   deprel `root`, `conj` и subordinate deprels (`ccomp`, `xcomp`,
+   `advcl`, `acl`, `acl:relcl`) теперь собираются как предикаты
+   наравне с финитными глаголами.
+
+2. **Расчёт span** (`clauses.py:202–207`): PUNCT-токены исключаются
+   из `min(start)` / `max(end)`, чтобы пунктуация не расширяла
+   границы клаузы.
+
+### Результат
+
+Для проблемного предложения теперь выделяются две клаузы:
+
+| Тип      | Предикат       | Текст                                          |
+|----------|----------------|-------------------------------------------------|
+| main     | ярко-красным   | Он был ярко-красным                             |
+| xcompl   | горящим        | словно горящим в последних лучах заката          |
+
+`_determine_clause_type` уже обрабатывала deprel=root → `main` и
+deprel=xcomp → `xcompl`, поэтому типизация заработала без изменений.
+
+Все 86 unit-тестов проходят, регрессий нет.
+
+### Ограничения
+
+- Natasha выдаёт self-reference head для «горящим» (head=6 при
+  id_in_sent=6) — это баг парсера. Для наших целей не критично:
+  deprel=xcomp достаточно для типизации, а поддерево строится от
+  самого токена.
+- `_determine_clause_type` не имеет специального типа для
+  сравнительных конструкций — xcomp после «словно» получает тип
+  `xcompl`, что лингвистически допустимо, но неточно.
+
+---
+
+## Интерактивный конфиг в Streamlit
+
+### Задача
+
+Sidebar веб-интерфейса содержал всего несколько checkbox и JSON-дамп
+конфига. Нужна структурированная панель настроек со всеми параметрами
+pipeline, русскими описаниями и подходящими виджетами.
+
+### Что изменено
+
+Новая функция `_render_sidebar_config` (`app.py:25–197`) строит
+панель из пяти разделов:
+
+1. **Морфосинтаксис** — selectbox: Natasha / MaltParser.
+2. **Выделение клауз** — selectbox: UD-поддеревья / предложение=клауза.
+3. **Семантический граф** — selectbox: билдер по UD-ролям.
+4. **Разрешение анафоры** — toggle вкл/выкл; при включении
+   появляются slider окна поиска (1–10 предложений) и toggle
+   совпадения одушевлённости.
+5. **Агрегация** — разбита на подгруппы:
+   - *Предобработка*: NP collapse (toggle).
+   - *L1*: лингвистическая агрегация (toggle), shared_entity (toggle
+     + slider мин. длины леммы).
+   - *L2*: параграфы (toggle), coref-кластеры (toggle + slider мин.
+     размера), topic_overlap (toggle + slider мин. пересечения).
+   - *Экспериментальные*: структурная и семантическая (disabled
+     toggles, зарезервировано).
+
+В конце sidebar — разворачиваемый блок с текущим конфигом в формате
+YAML (вместо прежнего JSON).
+
+Каждый виджет имеет `help` с русским описанием параметра. Условные
+элементы (слайдеры, вложенные toggle) появляются только когда
+родительский toggle включён.
+
+---
+
 ## Затронутые файлы
 
+### Анафора
 - [src/metagraph_nlp/parsers/anaphora.py](../../src/metagraph_nlp/parsers/anaphora.py) (новый)
 - [src/metagraph_nlp/domain/anaphora.py](../../src/metagraph_nlp/domain/anaphora.py) (новый)
 - [src/metagraph_nlp/domain/graph.py](../../src/metagraph_nlp/domain/graph.py) (`Node.token_id_in_sent`)
@@ -110,3 +216,9 @@ anaphora:
 - [src/metagraph_nlp/io/artifacts.py](../../src/metagraph_nlp/io/artifacts.py) (запись `anaphora_resolutions.jsonl`)
 - [tests/unit/test_anaphora_resolution.py](../../tests/unit/test_anaphora_resolution.py) (новый, 7 тестов)
 - [tests/integration/test_anaphora_pipeline.py](../../tests/integration/test_anaphora_pipeline.py) (новый, 2 теста)
+
+### Исправление клауз
+- [src/metagraph_nlp/parsers/clauses.py](../../src/metagraph_nlp/parsers/clauses.py) (`_collect_predicates`, расчёт span)
+
+### Streamlit конфиг
+- [src/metagraph_nlp/web/app.py](../../src/metagraph_nlp/web/app.py) (новая `_render_sidebar_config`)
