@@ -142,6 +142,37 @@ def test_render_html_creates_file(tmp_path: Path):
     assert "__ELEMENTS_JSON__" not in html
 
 
+def test_holarchy_contains_edges_appear_for_secondary_l2():
+    """Если L1 входит в две L2 — основной parent через compound, остальные
+    через явные contains-рёбра."""
+    graph, metagraph, clauses = _fixture()
+    # Две L2-метавершины ссылаются на одну и ту же L1 (mn-1).
+    metagraph.meta_nodes.append(
+        MetaNode(
+            id="mn-para", type="paragraph", level=2, label="para_0",
+            fragment=GraphFragment(meta_node_ids=["mn-1"]),
+            provenance=_PROV,
+        )
+    )
+    metagraph.meta_nodes.append(
+        MetaNode(
+            id="mn-cluster", type="entity_cluster", level=2, label="кот",
+            fragment=GraphFragment(meta_node_ids=["mn-1"]),
+            provenance=_PROV,
+        )
+    )
+
+    elements = metagraph_to_cytoscape_elements(metagraph, graph, clauses)
+
+    contains = [e for e in elements if e["data"].get("kind") == "contains_edge"]
+    # Один из L2 — основной parent (compound), второй создаёт contains-ребро.
+    assert len(contains) == 1
+    e = contains[0]
+    assert e["data"]["target"] == "mn-1"
+    assert e["data"]["source"] in {"mn-para", "mn-cluster"}
+    assert "contains-edge" in e["classes"]
+
+
 def test_elements_json_is_valid_in_html(tmp_path: Path):
     graph, metagraph, clauses = _fixture()
     out = tmp_path / "test.html"

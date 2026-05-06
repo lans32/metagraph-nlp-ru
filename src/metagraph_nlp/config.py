@@ -65,11 +65,30 @@ class AggregationConfig(BaseModel):
         ),
     )
     topic_overlap_min_overlap: int = 1
-    coref_cluster_enabled: bool = Field(
-        default=False,
-        description="Создавать L2-метавершины по кластерам shared_entity (coref_cluster_v0).",
+    entity_cluster_enabled: bool = Field(
+        default=True,
+        description=(
+            "Создавать L2-метавершины — тематические кластеры по графу "
+            "shared_entity (entity_cluster_v0). Включает холархию: одна "
+            "L1-клауза может попасть и в свой параграф, и в entity_cluster."
+        ),
     )
-    coref_cluster_min_size: int = 2
+    entity_cluster_min_size: int = 2
+    predicate_class_cluster_enabled: bool = Field(
+        default=True,
+        description=(
+            "Создавать L2-метавершины — кластеры клауз по классам "
+            "предикатов из словаря (predicate_class_cluster_v0)."
+        ),
+    )
+    predicate_class_cluster_min_size: int = 2
+    predicate_classes_path: str | None = Field(
+        default=None,
+        description=(
+            "Путь к YAML-словарю predicate-классов. None → "
+            "встроенный configs/predicate_classes.yaml."
+        ),
+    )
     np_collapse_enabled: bool = Field(
         default=False,
         description="Сворачивать именные группы (NP) в один узел графа перед агрегацией.",

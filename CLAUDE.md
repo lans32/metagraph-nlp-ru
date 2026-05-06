@@ -209,7 +209,8 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - `clause_as_metanode_v0` — клауза → L1-метавершина;
 - `shared_entity_by_lemma_v0` — общие леммы → L1-метарёбра;
 - `paragraph_clauses_v0` — параграф → L2-метавершина;
-- `coref_cluster_v0` — connected components по shared_entity → L2-метавершины;
+- `entity_cluster_v0` — connected components по shared_entity → L2-метавершины-«темы» (бывший `coref_cluster_v0`, переименован чтобы не путать с настоящей кореференцией);
+- `predicate_class_cluster_v0` — кластеры клауз по семантическим классам предикатов из словаря `configs/predicate_classes.yaml` (motion / communication / cognition / …) → L2-метавершины;
 - `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра;
 - `anaphora_resolution_v0` — личные местоимения 3-го лица заменяются на
   ближайший антецедент с согласованием по Gender / Number / Animacy;
@@ -549,7 +550,7 @@ OCR не считается частью семантического анали
 Отвечает за:
 
 - L1: `clause_as_metanode` (клауза → метавершина), `shared_entity_metaedges` (общие леммы → метарёбра);
-- L2: `paragraph_metanodes` (параграф → метавершина), `coref_cluster_metanodes` (connected components по shared_entity), `topic_overlap_metaedges` (пересечение L1-фрагментов).
+- L2: `paragraph_metanodes` (параграф → метавершина), `entity_cluster_metanodes` (connected components по shared_entity), `predicate_class_cluster` (кластеры клауз по классам предикатов), `topic_overlap_metaedges` (пересечение L1-фрагментов).
 
 ### 12.4. `transforms/`
 

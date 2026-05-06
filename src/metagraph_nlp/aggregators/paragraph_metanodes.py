@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from metagraph_nlp.aggregators._label_utils import dominant_lemma_label
 from metagraph_nlp.domain import (
     Clause,
     GraphFragment,
@@ -26,6 +27,7 @@ from metagraph_nlp.domain import (
     Metagraph,
     MetaNode,
     Provenance,
+    SemanticGraph,
     Sentence,
 )
 
@@ -35,6 +37,7 @@ _RULE = "paragraph_clauses_v0"
 
 def aggregate_clauses_to_paragraphs(
     metagraph: Metagraph,
+    graph: SemanticGraph,
     clauses: list[Clause],
     sentences: list[Sentence],
     ids: IdFactory,
@@ -77,12 +80,13 @@ def aggregate_clauses_to_paragraphs(
         l1_ids = sorted(l1_by_para[p])
         sent_ids = sorted(sents_by_para[p])
         fragment = GraphFragment(meta_node_ids=l1_ids)
+        topic = dominant_lemma_label(l1_ids, metagraph, graph)
         created.append(
             MetaNode(
                 id=ids.mnode(),
                 type="paragraph",
                 level=2,
-                label=f"paragraph_{p}",
+                label=f"§{p}: {topic}",
                 fragment=fragment,
                 provenance=Provenance(
                     rule=_RULE,

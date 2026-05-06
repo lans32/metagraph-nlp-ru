@@ -1,13 +1,18 @@
-"""Агрегация уровня 2: кластеризация L1-метавершин по shared entities.
+"""Агрегация уровня 2: тематическая кластеризация L1-метавершин по общим сущностям.
 
-Правило ``coref_cluster_v0`` (CLAUDE.md §5.2, §5.5). В отличие от
-paragraph_clauses_v0, одна L1-метавершина может попасть в несколько L2-кластеров,
-что делает topic_overlap метарёбра нетривиальными.
+Правило ``entity_cluster_v0`` (CLAUDE.md §5.2, §5.5). В отличие от
+paragraph_clauses_v0, одна L1-метавершина может попасть в несколько
+L2-кластеров (холархия) — это делает topic_overlap метарёбра
+нетривиальными.
+
+Внимание: это не разрешение кореференции (за это отвечает отдельный
+модуль ``parsers/anaphora.py``). Здесь происходит группировка клауз по
+графу их общих лемм-сущностей.
 
 Алгоритм:
 1. Построить граф связности L1-метавершин по shared_entity метарёбрам.
 2. Найти connected components (union-find).
-3. Каждый компонент ≥ min_cluster_size → L2-метавершина типа "coref_cluster".
+3. Каждый компонент ≥ min_cluster_size → L2-метавершина типа "entity_cluster".
 
 Инварианты:
 - L1-метавершины, не связанные shared_entity метарёбрами, не кластеризуются;
@@ -18,16 +23,18 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from metagraph_nlp.aggregators._label_utils import dominant_lemma_label
 from metagraph_nlp.domain import (
     GraphFragment,
     IdFactory,
     Metagraph,
     MetaNode,
     Provenance,
+    SemanticGraph,
 )
 
 _STAGE = "aggregate"
-_RULE = "coref_cluster_v0"
+_RULE = "entity_cluster_v0"
 
 
 def _union_find(edges: list[tuple[str, str]]) -> dict[str, set[str]]:
@@ -56,8 +63,9 @@ def _union_find(edges: list[tuple[str, str]]) -> dict[str, set[str]]:
     return components
 
 
-def aggregate_coref_clusters(
+def aggregate_entity_clusters(
     metagraph: Metagraph,
+    graph: SemanticGraph,
     ids: IdFactory,
     *,
     min_cluster_size: int = 2,
@@ -102,12 +110,13 @@ def aggregate_coref_clusters(
                 lemma_set.update(shared_lemmas.get(pair, []))
 
         fragment = GraphFragment(meta_node_ids=sorted_members)
+        label = dominant_lemma_label(sorted_members, metagraph, graph)
         created.append(
             MetaNode(
                 id=ids.mnode(),
-                type="coref_cluster",
+                type="entity_cluster",
                 level=2,
-                label=f"cluster_{len(created)}",
+                label=label,
                 fragment=fragment,
                 provenance=Provenance(
                     rule=_RULE,

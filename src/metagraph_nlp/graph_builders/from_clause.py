@@ -192,8 +192,10 @@ def build_semantic_graph(
     clauses: list[Clause],
     parsed_sentences: dict[str, ParsedSentence],
     ids: IdFactory,
+    predicate_classes: dict[str, frozenset[str]] | None = None,
 ) -> SemanticGraph:
     graph = SemanticGraph(document_id=document.id)
+    classes_index = predicate_classes or {}
 
     for clause in clauses:
         parsed = parsed_sentences.get(clause.sentence_id)
@@ -259,15 +261,17 @@ def build_semantic_graph(
                 )
             continue
 
+        pred_classes = classes_index.get(predicate.lemma)
         for obj_node, obj_tok, prep in object_nodes:
             relation = predicate.lemma if prep is None else f"{predicate.lemma}_{prep}"
-            graph.edges.append(
-                _make_edge(
-                    subject_node, obj_node, relation, "predicate",
-                    clause, document, ids,
-                    note=f"predicate_lemma={predicate.lemma}",
-                )
+            edge = _make_edge(
+                subject_node, obj_node, relation, "predicate",
+                clause, document, ids,
+                note=f"predicate_lemma={predicate.lemma}",
             )
+            if pred_classes:
+                edge.predicate_class = sorted(pred_classes)
+            graph.edges.append(edge)
             _expand_nmod(
                 obj_tok, obj_node, parsed, clause_ids,
                 clause, document, ids, graph,

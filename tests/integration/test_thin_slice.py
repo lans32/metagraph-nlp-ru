@@ -41,11 +41,17 @@ def test_thin_slice_in_memory():
     for mn in l1_nodes:
         assert mn.type.startswith("clause:")
 
-    # SAMPLE — одно-параграфный: ровно одна L2-метавершина типа "paragraph".
-    assert len(l2_nodes) == 1
-    assert l2_nodes[0].type == "paragraph"
-    assert l2_nodes[0].label == "paragraph_0"
-    assert set(l2_nodes[0].fragment.meta_node_ids) == {mn.id for mn in l1_nodes}
+    # SAMPLE — одно-параграфный, дефолтный конфиг включает paragraph и
+    # entity_cluster: ожидаем хотя бы одну paragraph- и одну entity_cluster-
+    # L2-метавершину (общая лемма «студент» связывает первые две клаузы).
+    para_l2 = [mn for mn in l2_nodes if mn.type == "paragraph"]
+    cluster_l2 = [mn for mn in l2_nodes if mn.type == "entity_cluster"]
+    assert len(para_l2) == 1
+    assert para_l2[0].label.startswith("§0:")
+    assert set(para_l2[0].fragment.meta_node_ids) == {mn.id for mn in l1_nodes}
+    assert len(cluster_l2) >= 1
+    # Cluster содержит как минимум две клаузы с общей сущностью.
+    assert all(len(mn.fragment.meta_node_ids) >= 2 for mn in cluster_l2)
 
     rule_names = {e.rule for e in result.audit.events}
     assert "normalize_text" in rule_names
@@ -53,6 +59,7 @@ def test_thin_slice_in_memory():
     assert "ud_subtree_clauses_v0" in rule_names
     assert "ud_roles_v0" in rule_names
     assert "paragraph_clauses_v0" in rule_names
+    assert "entity_cluster_v0" in rule_names
     assert "topic_overlap_v0" in rule_names
 
     # «студент» встречается в первой и второй клаузах — должно быть
@@ -60,10 +67,10 @@ def test_thin_slice_in_memory():
     shared = [me for me in result.metagraph.meta_edges if me.type == "shared_entity"]
     assert shared, "ожидается хотя бы одно метаребро shared_entity"
 
-    # На параграфной стратегии L2-метавершины не пересекаются по L1-клаузам,
-    # поэтому topic_overlap рёбер быть не должно.
+    # При двух L2-стратегиях (paragraph + entity_cluster) их фрагменты
+    # пересекаются по L1-клаузам — topic_overlap впервые непустой.
     topic = [me for me in result.metagraph.meta_edges if me.type == "topic_overlap"]
-    assert topic == []
+    assert topic, "ожидается хотя бы одно metaedge topic_overlap при двух L2-стратегиях"
 
 
 def test_thin_slice_writes_artifacts(tmp_path: Path):

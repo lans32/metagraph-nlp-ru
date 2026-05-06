@@ -18,7 +18,8 @@ logger = logging.getLogger("metagraph_nlp.pipeline")
 from metagraph_nlp.aggregators import (
     aggregate_clauses_to_metanodes,
     aggregate_clauses_to_paragraphs,
-    aggregate_coref_clusters,
+    aggregate_entity_clusters,
+    aggregate_predicate_class_clusters,
     build_shared_entity_metaedges,
     build_topic_overlap_metaedges,
 )
@@ -42,6 +43,7 @@ from metagraph_nlp.parsers import (
     resolve_anaphora,
     split_sentences,
 )
+from metagraph_nlp.parsers.predicate_lexicon import load_predicate_classes
 from metagraph_nlp.parsers.morphsyntax import MorphSyntaxParser, ParsedSentence
 from metagraph_nlp.profiling import PipelineMetrics, measure_stage
 from metagraph_nlp.provenance import AuditLog
@@ -159,8 +161,17 @@ def run(
     )
     logger.info("clauses: %d clauses extracted", len(clauses))
 
+    predicate_classes = (
+        load_predicate_classes(cfg.aggregation.predicate_classes_path)
+        if cfg.aggregation.predicate_class_cluster_enabled
+        else None
+    )
+
     with measure_stage("graph_builder", metrics) as sm:
-        graph = build_semantic_graph(document, clauses, parsed_sentences, ids)
+        graph = build_semantic_graph(
+            document, clauses, parsed_sentences, ids,
+            predicate_classes=predicate_classes,
+        )
         sm.output_count = len(graph.nodes) + len(graph.edges)
     audit.record(
         "graph_builder",
@@ -236,35 +247,62 @@ def run(
         )
         logger.info("aggregate L1-edges: %d shared_entity metaedges", len(new_medges))
 
-    if cfg.aggregation.coref_cluster_enabled:
-        with measure_stage("aggregate_coref_clusters", metrics) as sm:
-            new_coref_nodes = aggregate_coref_clusters(
-                metagraph,
-                ids,
-                min_cluster_size=cfg.aggregation.coref_cluster_min_size,
-            )
-            sm.output_count = len(new_coref_nodes)
-        audit.record(
-            "aggregate",
-            "coref_cluster_v0",
-            inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 1],
-            outputs=[mn.id for mn in new_coref_nodes],
-        )
-        logger.info("aggregate coref_clusters: %d L2 metanodes", len(new_coref_nodes))
-
     if cfg.aggregation.paragraph_enabled:
-        with measure_stage("aggregate_L2_nodes", metrics) as sm:
-            new_l2_nodes = aggregate_clauses_to_paragraphs(
-                metagraph, clauses, sentences, ids
+        with measure_stage("aggregate_L2_paragraph", metrics) as sm:
+            new_para_nodes = aggregate_clauses_to_paragraphs(
+                metagraph, graph, clauses, sentences, ids
             )
-            sm.output_count = len(new_l2_nodes)
+            sm.output_count = len(new_para_nodes)
         audit.record(
             "aggregate",
             "paragraph_clauses_v0",
             inputs=[c.id for c in clauses],
-            outputs=[mn.id for mn in new_l2_nodes],
+            outputs=[mn.id for mn in new_para_nodes],
+            params={"L2_strategy": "paragraph"},
         )
-        logger.info("aggregate L2-nodes: %d paragraph metanodes", len(new_l2_nodes))
+        logger.info(
+            "aggregate L2 paragraph: %d metanodes", len(new_para_nodes)
+        )
+
+    if cfg.aggregation.entity_cluster_enabled:
+        with measure_stage("aggregate_L2_entity_cluster", metrics) as sm:
+            new_entity_nodes = aggregate_entity_clusters(
+                metagraph,
+                graph,
+                ids,
+                min_cluster_size=cfg.aggregation.entity_cluster_min_size,
+            )
+            sm.output_count = len(new_entity_nodes)
+        audit.record(
+            "aggregate",
+            "entity_cluster_v0",
+            inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 1],
+            outputs=[mn.id for mn in new_entity_nodes],
+            params={"L2_strategy": "entity_cluster"},
+        )
+        logger.info(
+            "aggregate L2 entity_cluster: %d metanodes", len(new_entity_nodes)
+        )
+
+    if cfg.aggregation.predicate_class_cluster_enabled:
+        with measure_stage("aggregate_L2_predicate_class", metrics) as sm:
+            new_pred_nodes = aggregate_predicate_class_clusters(
+                metagraph,
+                graph,
+                ids,
+                min_cluster_size=cfg.aggregation.predicate_class_cluster_min_size,
+            )
+            sm.output_count = len(new_pred_nodes)
+        audit.record(
+            "aggregate",
+            "predicate_class_cluster_v0",
+            inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 1],
+            outputs=[mn.id for mn in new_pred_nodes],
+            params={"L2_strategy": "predicate_class"},
+        )
+        logger.info(
+            "aggregate L2 predicate_class: %d metanodes", len(new_pred_nodes)
+        )
 
     if cfg.aggregation.topic_overlap_enabled:
         with measure_stage("aggregate_L2_edges", metrics) as sm:

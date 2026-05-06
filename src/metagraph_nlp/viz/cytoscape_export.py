@@ -103,6 +103,29 @@ def metagraph_to_cytoscape_elements(
             "classes": f"metaedge level-{me.level}",
         })
 
+    # Холархия: для каждой L1-метавершины, входящей более чем в один L2,
+    # рисуем явные contains-рёбра от каждого «не-основного» L2 к этой L1.
+    # Основной parent уже выражен через compound-nodes (data.parent), здесь
+    # отражаются дополнительные membership-связи (CLAUDE.md §4.4).
+    for mn in metagraph.meta_nodes:
+        if mn.level < 2:
+            continue
+        for child_id in mn.fragment.meta_node_ids:
+            if l1_to_l2.get(child_id) == mn.id:
+                continue  # основной parent — compound-nodes уже его показывают
+            elements.append({
+                "data": {
+                    "id": f"contains_{mn.id}_{child_id}",
+                    "source": mn.id,
+                    "target": child_id,
+                    "label": "contains",
+                    "kind": "contains_edge",
+                    "level": mn.level,
+                    "rule": "holarchy_contains_v0",
+                },
+                "classes": f"contains-edge level-{mn.level}",
+            })
+
     return elements
 
 
@@ -237,6 +260,21 @@ var cy = cytoscape({
       style: {
         "line-color": "#333",
         "target-arrow-color": "#333",
+      }
+    },
+    {
+      selector: "edge.contains-edge",
+      style: {
+        "label": "data(label)",
+        "font-size": 8,
+        "color": "#bbb",
+        "curve-style": "bezier",
+        "target-arrow-shape": "tee",
+        "line-color": "#cfd8dc",
+        "target-arrow-color": "#cfd8dc",
+        "line-style": "dotted",
+        "width": 1.2,
+        "opacity": 0.7,
       }
     },
     {

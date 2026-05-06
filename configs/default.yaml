@@ -36,7 +36,13 @@ aggregation:
     - SCONJ
     - PART
   paragraph_enabled: true
+  entity_cluster_enabled: true
+  entity_cluster_min_size: 2
+  predicate_class_cluster_enabled: true
+  predicate_class_cluster_min_size: 2
+  predicate_classes_path: null
   topic_overlap_enabled: true
   topic_overlap_min_overlap: 1
+  np_collapse_enabled: false
 
 log_level: INFO

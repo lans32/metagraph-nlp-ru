@@ -140,20 +140,37 @@ def _render_sidebar_config(config: Config) -> Config:
         help="Группирует L1-метавершины одного параграфа в L2-метавершину "
              "(правило paragraph_clauses_v0).",
     )
-    config.aggregation.coref_cluster_enabled = st.toggle(
-        "Кореферентные кластеры",
-        value=config.aggregation.coref_cluster_enabled,
+    config.aggregation.entity_cluster_enabled = st.toggle(
+        "Тематические кластеры (entity_cluster)",
+        value=config.aggregation.entity_cluster_enabled,
         help="Создаёт L2-метавершины из связных компонент графа shared_entity "
-             "(правило coref_cluster_v0).",
+             "(правило entity_cluster_v0). Группирует клаузы по общим "
+             "сущностям-леммам, не по кореференции.",
     )
-    if config.aggregation.coref_cluster_enabled:
-        config.aggregation.coref_cluster_min_size = st.slider(
-            "Мин. размер кластера",
+    if config.aggregation.entity_cluster_enabled:
+        config.aggregation.entity_cluster_min_size = st.slider(
+            "Мин. размер тематического кластера",
             min_value=2,
             max_value=10,
-            value=config.aggregation.coref_cluster_min_size,
-            help="Минимальное число L1-метавершин в кластере, "
+            value=config.aggregation.entity_cluster_min_size,
+            help="Минимальное число L1-метавершин в компоненте, "
                  "чтобы он стал L2-метавершиной.",
+        )
+    config.aggregation.predicate_class_cluster_enabled = st.toggle(
+        "Кластеры по классам предикатов",
+        value=config.aggregation.predicate_class_cluster_enabled,
+        help="Создаёт L2-метавершины, группируя клаузы по классам глаголов "
+             "из словаря (motion, communication, cognition, ...). "
+             "Правило predicate_class_cluster_v0.",
+    )
+    if config.aggregation.predicate_class_cluster_enabled:
+        config.aggregation.predicate_class_cluster_min_size = st.slider(
+            "Мин. размер predicate-класса",
+            min_value=2,
+            max_value=10,
+            value=config.aggregation.predicate_class_cluster_min_size,
+            help="Минимальное число клауз с предикатом одного класса, "
+                 "чтобы они образовали L2-метавершину.",
         )
     config.aggregation.topic_overlap_enabled = st.toggle(
         "Метарёбра topic_overlap",

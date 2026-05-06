@@ -44,6 +44,13 @@ class Edge(BaseModel):
     relation: str = Field(description="Лейбл отношения (обычно лемма предиката).")
     kind: str = Field(default="predicate")
     clause_id: str | None = None
+    predicate_class: list[str] | None = Field(
+        default=None,
+        description=(
+            "Семантические классы предиката (напр. motion, communication) "
+            "из словаря predicate_classes.yaml. None если лемма не в словаре."
+        ),
+    )
     provenance: Provenance
 
 
