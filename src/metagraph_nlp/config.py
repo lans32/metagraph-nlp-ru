@@ -95,12 +95,52 @@ class AggregationConfig(BaseModel):
     )
 
 
+class SalienceWeights(BaseModel):
+    """Веса упрощённого Lappin–Leass-скоринга кандидатов в антецеденты.
+
+    Лучший кандидат = argmax(score). Hard constraints (Number, Gender,
+    Animacy) применяются как фильтры до скоринга — несовместимые
+    кандидаты в скоринг не попадают вовсе.
+    """
+
+    subj: int = Field(default=80, description="Бонус за роль nsubj/nsubj:pass у кандидата.")
+    obj: int = Field(default=50, description="Бонус за роль obj у кандидата.")
+    oblique: int = Field(
+        default=20,
+        description="Бонус за obl/iobj/nmod у кандидата.",
+    )
+    propn: int = Field(default=50, description="Бонус, если кандидат — PROPN (именованная сущность).")
+    recency_per_sent: int = Field(
+        default=-10,
+        description=(
+            "Штраф за расстояние в предложениях между PRON и кандидатом. "
+            "Должен быть отрицательным (или 0)."
+        ),
+    )
+    thematic: int = Field(
+        default=20,
+        description="Бонус за тематическую позицию (кандидат в начале предложения).",
+    )
+    thematic_token_threshold: int = Field(
+        default=3,
+        ge=1,
+        description="Какие token_id_in_sent считаются началом предложения (≤ threshold).",
+    )
+    repeat_mention: int = Field(
+        default=30,
+        description=(
+            "Бонус за каждое предыдущее разрешение, в котором этот кандидат "
+            "уже выступал антецедентом (учёт salience через повтор)."
+        ),
+    )
+
+
 class AnaphoraConfig(BaseModel):
     enabled: bool = Field(
         default=False,
         description=(
-            "Включить разрешение анафоры (anaphora_resolution_v0): "
-            "заменять личные местоимения 3-го лица на найденные антецеденты."
+            "Включить разрешение анафоры (anaphora_resolution_v1): "
+            "заменять местоимения на найденные антецеденты с сохранением узла."
         ),
     )
     search_window_sentences: int = Field(
@@ -113,8 +153,15 @@ class AnaphoraConfig(BaseModel):
         description="Требовать совпадения Animacy (Anim/Inan) PRON-токена и антецедента.",
     )
     pronoun_types: list[str] = Field(
-        default_factory=lambda: ["personal_3p"],
-        description="Типы покрываемых местоимений (v0: только personal_3p).",
+        default_factory=lambda: ["personal_3p", "possessive_3p", "reflexive"],
+        description=(
+            "Типы покрываемых местоимений: personal_3p (он/она/оно/они), "
+            "possessive_3p (его/её/их с Poss=Yes), reflexive (себя, свой)."
+        ),
+    )
+    salience_weights: SalienceWeights = Field(
+        default_factory=SalienceWeights,
+        description="Веса salience-скоринга кандидатов (упрощённый Lappin–Leass).",
     )
 
 

@@ -192,16 +192,18 @@ def run(
                 ids,
                 search_window_sentences=cfg.anaphora.search_window_sentences,
                 require_animacy_match=cfg.anaphora.require_animacy_match,
+                pronoun_types=cfg.anaphora.pronoun_types,
+                salience_weights=cfg.anaphora.salience_weights,
             )
             sm.output_count = len(anaphora_resolutions)
         audit.record(
             "anaphora_resolution",
-            "anaphora_resolution_v0",
+            "anaphora_resolution_v1",
             inputs=[r.pronoun_node_id for r in anaphora_resolutions],
             outputs=[r.antecedent_node_id for r in anaphora_resolutions],
         )
         logger.info(
-            "anaphora: %d pronouns resolved, %d nodes remain",
+            "anaphora: %d pronouns replaced, %d nodes total",
             len(anaphora_resolutions),
             len(graph.nodes),
         )

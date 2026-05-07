@@ -23,7 +23,7 @@ raw text → normalize → sentences → parse (UD) → clauses → semantic gra
 - **Содержательные labels у L2-метавершин**: самая частая значимая лемма во фрагменте (для paragraph и entity_cluster) либо имя семантического класса (для predicate_class_cluster).
 - **Минимальная таксономия глаголов**: ручной YAML-словарь `configs/predicate_classes.yaml` (motion, communication, cognition, perception, possession, creation, change_of_state, causation), поле `Edge.predicate_class`, агрегатор `predicate_class_cluster_v0`.
 - **NP collapse**: свёртка именных групп (NOUN + amod/nmod/det) в один узел с составной леммой.
-- **Разрешение анафоры**: rule-based замена личных местоимений 3-го лица (он/она/оно/они) на ближайший антецедент с согласованием по Gender / Number / Animacy.
+- **Разрешение анафоры (v1)**: rule-based замена-в-узле для личных, притяжательных 3-го лица и возвратных местоимений (он/она/оно/они, его/её/их с Poss=Yes, себя/свой). PRON-узел остаётся в графе с обновлёнными `lemma`/`upos`/`label` от антецедента; исходные значения сохраняются в `original_lemma`/`original_upos`, добавляется `antecedent_node_id`. Кандидаты ранжируются упрощённым Lappin–Leass salience-скорингом (subj / obj / obl / propn / recency / thematic / repeat_mention). Hard constraints — Gender / Number / Animacy. Возвратные берут subject текущей клаузы.
 - **Три формата визуализации**: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes и инспектором.
 - **Пакетная обработка**: CLI-команда `batch` для каталога `.txt` файлов.
 - **Профилирование**: wall time + peak memory на каждую стадию pipeline.
@@ -82,10 +82,16 @@ python -m metagraph_nlp batch \
 streamlit run src/metagraph_nlp/web/app.py
 ```
 
+Удобный перезапуск с очисткой кэша (cross-platform, без `psutil`):
+
+```bash
+.venv/Scripts/python.exe scripts/restart_streamlit.py
+```
+
 ## Тесты
 
 ```bash
-pytest                          # быстрые тесты (≈105: 103 unit + 2 integration)
+pytest                          # быстрые тесты (118: 116 unit + 2 integration)
 pytest -m slow                  # slow-тесты (6: 2 unit + 4 integration; требуют natasha/pymorphy3)
 pytest -m 'slow or not slow'    # все тесты
 ```
@@ -120,9 +126,11 @@ pytest -m 'slow or not slow'    # все тесты
 | `aggregation.predicate_classes_path` | `null` | Путь к YAML-словарю классов; `null` → встроенный `configs/predicate_classes.yaml` |
 | `aggregation.topic_overlap_enabled` | `true` | L2-метарёбра по пересечению фрагментов |
 | `aggregation.np_collapse_enabled` | `false` | Свёртка именных групп перед агрегацией |
-| `anaphora.enabled` | `false` | Разрешение анафоры (личные местоимения 3-го лица) |
+| `anaphora.enabled` | `false` | Разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле) |
 | `anaphora.search_window_sentences` | `2` | Окно поиска антецедента в предложениях |
 | `anaphora.require_animacy_match` | `true` | Требовать совпадения Animacy PRON и антецедента |
+| `anaphora.pronoun_types` | `["personal_3p", "possessive_3p", "reflexive"]` | Покрываемые типы местоимений |
+| `anaphora.salience_weights` | см. `SalienceWeights` | Веса упрощённого Lappin–Leass-скоринга кандидатов |
 | `morphsyntax.parser` | `"natasha"` | UD-парсер: `natasha` или `maltparser` |
 
 ## Дневник разработки
@@ -134,3 +142,4 @@ pytest -m 'slow or not slow'    # все тесты
 - [2026-05-05 — Девять задач для защиты](docs/journal/2026-05-05-diploma-features.md)
 - [2026-05-06 — Разрешение анафоры (v0)](docs/journal/2026-05-06-anaphora-resolution-v0.md)
 - [2026-05-06 — Тематические кластеры и таксономия глаголов](docs/journal/2026-05-06-l2-entity-cluster-and-verb-taxonomy.md)
+- [2026-05-07 — Разрешение анафоры v1: замена-в-узле, salience-скоринг](docs/journal/2026-05-07-anaphora-resolution-v1.md)

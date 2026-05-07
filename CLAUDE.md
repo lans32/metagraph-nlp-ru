@@ -53,7 +53,7 @@ raw text → normalize → sentences → parse (UD) → clauses (typed)
 4. морфо-синтаксический разбор (natasha или MaltParser);
 5. выделение типизированных клауз (main, coord, compl, xcompl, adverbial, relative, participial);
 6. построение ориентированного семантического графа по UD-ролям;
-7. опциональное разрешение анафоры (личные местоимения 3-го лица → антецедент по Gender/Number/Animacy);
+7. опциональное разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле): личные / притяжательные 3-го лица / возвратные местоимения → антецедент с hard constraints по Gender/Number/Animacy и упрощённым Lappin–Leass salience-скорингом;
 8. опциональная свёртка именных групп (NP collapse);
 9. многоуровневая агрегация: L1 (clause metanodes, shared_entity metaedges), L2 (paragraph metanodes, coref cluster metanodes, topic_overlap metaedges);
 10. сохранение промежуточных артефактов (JSON, JSONL, YAML);
@@ -212,11 +212,19 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - `entity_cluster_v0` — connected components по shared_entity → L2-метавершины-«темы» (бывший `coref_cluster_v0`, переименован чтобы не путать с настоящей кореференцией);
 - `predicate_class_cluster_v0` — кластеры клауз по семантическим классам предикатов из словаря `configs/predicate_classes.yaml` (motion / communication / cognition / …) → L2-метавершины;
 - `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра;
-- `anaphora_resolution_v0` — личные местоимения 3-го лица заменяются на
-  ближайший антецедент с согласованием по Gender / Number / Animacy;
-  PRON-узел удаляется, рёбра перенаправляются на антецедент, в provenance
-  фиксируется исходный pronoun_id (CLAUDE.md §9.4 «no silent collapse»).
-  Запускается до агрегации, управляется конфигом `anaphora.enabled`.
+- `anaphora_resolution_v1` — замена-в-узле для личных, притяжательных
+  3-го лица и возвратных местоимений (он/она/оно/они, его/её/их с
+  Poss=Yes, себя/свой). PRON-узел остаётся в графе: `lemma`/`upos`/`label`
+  обновляются от антецедента, `original_lemma` / `original_upos` /
+  `antecedent_node_id` сохраняют исходные значения и связь с
+  антецедентом (CLAUDE.md §9.4 «no silent collapse»). Топология рёбер
+  не меняется — связность возникает через `shared_entity_by_lemma_v0`.
+  Hard constraints — Gender / Number / Animacy. Личные и притяжательные
+  ранжируются упрощённым Lappin–Leass-скорингом (subj / obj / obl /
+  propn / recency / thematic / repeat_mention); возвратные берут
+  subject текущей клаузы. Запускается до агрегации, управляется
+  конфигом `anaphora.enabled`, `anaphora.pronoun_types`,
+  `anaphora.salience_weights`.
 
 ### 5.2. Structural aggregation
 
@@ -534,9 +542,12 @@ OCR не считается частью семантического анали
 - сегментацию на предложения (с paragraph_index);
 - выделение типизированных клауз (стратегии `ud_subtree_clauses_v0`, `sentence_as_clause_v0`);
 - адаптеры morphsyntax: `MorphSyntaxParser` Protocol, `natasha_adapter`, `maltparser_adapter`;
-- разрешение анафоры (`anaphora.py`, правило `anaphora_resolution_v0`):
-  rule-based замена личных местоимений 3-го лица на согласованный
-  антецедент по Gender / Number / Animacy.
+- разрешение анафоры (`anaphora.py`, правило `anaphora_resolution_v1`):
+  rule-based замена-в-узле для личных, притяжательных 3-го лица и
+  возвратных местоимений. Классификация по приоритету
+  reflexive → possessive_3p → personal_3p, маршрутизация на
+  `_find_clause_subject` (возвратные) или `_find_antecedent_by_search`
+  (остальные) с упрощённым Lappin–Leass salience-скорингом.
 
 ### 12.2. `graph_builders/`
 
@@ -566,11 +577,14 @@ OCR не считается частью семантического анали
 Содержит ядро модели:
 
 - `Document`, `Sentence`, `Clause` (с `clause_type`)
-- `Node` (с `token_id_in_sent` — якорь к UD-feats), `Edge`
+- `Node` (с `token_id_in_sent` — якорь к UD-feats; `original_lemma` /
+  `original_upos` / `antecedent_node_id` — заполняются для PRON-узлов
+  после `anaphora_resolution_v1`), `Edge`
 - `MetaNode`, `MetaEdge`
 - `GraphFragment`
 - `SemanticGraph`, `Metagraph`
-- `AnaphoraResolution` (запись о замене местоимения на антецедент)
+- `AnaphoraResolution` (запись о замене местоимения: `pronoun_type`,
+  `resolution_strategy`, `salience_score`, `matched_features`)
 - `Provenance`, `IdFactory`
 
 ### 12.6. `io/`

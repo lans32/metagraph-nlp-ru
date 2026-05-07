@@ -58,9 +58,15 @@ def metagraph_to_cytoscape_elements(
 
     for n in graph.nodes:
         parent = node_to_l1.get(n.id)
+        # Для узлов, заменённых анафорой, в label показываем «лемма ←surface»
+        # (например, «Иван ←Он»), чтобы и подставленная сущность, и место
+        # бывшего местоимения были видны в графе.
+        display_label = n.label
+        if n.antecedent_node_id and n.surface:
+            display_label = f"{n.label} ←{n.surface}"
         data = {
             "id": n.id,
-            "label": n.label,
+            "label": display_label,
             "kind": "node",
             "level": 0,
             "lemma": n.lemma or "",
@@ -69,6 +75,9 @@ def metagraph_to_cytoscape_elements(
             "rule": n.provenance.rule,
             "stage": n.provenance.stage,
             "clause_id": n.clause_id or "",
+            "original_lemma": n.original_lemma or "",
+            "original_upos": n.original_upos or "",
+            "antecedent_node_id": n.antecedent_node_id or "",
         }
         if parent:
             data["parent"] = parent

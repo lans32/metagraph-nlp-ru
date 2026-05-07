@@ -43,14 +43,32 @@ def _clause_lookup(clauses: list[Clause]) -> dict[str, str]:
     return {c.id: c.span.text for c in clauses}
 
 
+def _node_display_label(node: Node) -> str:
+    """\u041c\u0435\u0442\u043a\u0430 \u0443\u0437\u043b\u0430 \u0434\u043b\u044f \u0432\u0438\u0437-\u0441\u043b\u043e\u044f.
+
+    \u0414\u043b\u044f \u0443\u0437\u043b\u043e\u0432, \u0437\u0430\u043c\u0435\u043d\u0451\u043d\u043d\u044b\u0445 \u0430\u043d\u0430\u0444\u043e\u0440\u043e\u0439 (antecedent_node_id != None), \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u043c
+    \u00ab<\u043b\u0435\u043c\u043c\u0430 \u0430\u043d\u0442\u0435\u0446\u0435\u0434\u0435\u043d\u0442\u0430> \u2190<surface \u043c\u0435\u0441\u0442\u043e\u0438\u043c\u0435\u043d\u0438\u044f>\u00bb, \u0447\u0442\u043e\u0431\u044b \u0447\u0438\u0442\u0430\u0442\u0435\u043b\u044c \u0432\u0438\u0434\u0435\u043b
+    \u0438 \u043a\u043e\u0433\u043e \u043f\u043e\u0434\u0441\u0442\u0430\u0432\u0438\u043b\u0438, \u0438 \u0433\u0434\u0435 \u0438\u043c\u0435\u043d\u043d\u043e \u0441\u0442\u043e\u044f\u043b\u043e \u043c\u0435\u0441\u0442\u043e\u0438\u043c\u0435\u043d\u0438\u0435.
+    """
+    if node.antecedent_node_id and node.surface:
+        return f"{node.label} \u2190{node.surface}"
+    return node.label
+
+
 def _node_tooltip(node: Node, clause_text: str) -> str:
     lemma_line = f"{node.label}"
     if node.surface and node.surface != node.label:
         lemma_line = f"{node.label} \u2190 {node.surface}"
     upos = node.upos or node.kind
+    extra = ""
+    if node.antecedent_node_id:
+        extra = (
+            f"\nreplaced from pronoun: {node.original_lemma} "
+            f"({node.original_upos})\nantecedent: {node.antecedent_node_id}"
+        )
     return html_escape(
         f"{node.id}\n{lemma_line}\nupos: {upos}\nrule: {node.provenance.rule}\n"
-        f"clause: {clause_text}"
+        f"clause: {clause_text}{extra}"
     )
 
 
@@ -66,7 +84,7 @@ def render_graph_html(
     for n in graph.nodes:
         net.add_node(
             n.id,
-            label=n.label,
+            label=_node_display_label(n),
             color=color_for(n.clause_id),
             shape="ellipse",
             title=_node_tooltip(n, by_clause.get(n.clause_id or "", "")),
@@ -126,7 +144,7 @@ def render_metagraph_html(
         color = color_for(owner) if owner else "#dddddd"
         net.add_node(
             n.id,
-            label=n.label,
+            label=_node_display_label(n),
             color=color,
             shape="ellipse",
             title=_node_tooltip(n, by_clause.get(n.clause_id or "", "")),

@@ -51,20 +51,31 @@ def test_pipeline_resolves_anaphora_end_to_end():
 
     result = run(text, config=cfg, parser=_AnaphoraParser())
 
-    # «Он» удалено из графа.
-    pron_nodes = [n for n in result.graph.nodes if n.upos == "PRON"]
-    assert pron_nodes == []
+    # v1: PRON-узел остаётся в графе, но с обновлёнными атрибутами:
+    # upos сменился на PROPN (как у антецедента), original_upos=PRON.
+    replaced_nodes = [
+        n for n in result.graph.nodes if n.antecedent_node_id is not None
+    ]
+    assert len(replaced_nodes) == 1
+    replaced = replaced_nodes[0]
+    assert replaced.lemma == "иван"
+    assert replaced.original_lemma == "он"
+    assert replaced.original_upos == "PRON"
+    assert replaced.upos == "PROPN"
+    assert replaced.surface == "Он"
 
     # Зафиксировано ровно одно разрешение, антецедент — Иван.
     assert result.anaphora_resolutions is not None
     assert len(result.anaphora_resolutions) == 1
     r = result.anaphora_resolutions[0]
     assert r.antecedent_lemma == "иван"
+    assert r.pronoun_type == "personal_3p"
+    assert r.resolution_strategy == "search"
     assert r.matched_features.get("Gender") == "Masc"
 
-    # В audit-логе появилась запись стадии.
+    # В audit-логе появилась запись стадии с новой версией правила.
     rules = {e.rule for e in result.audit.events}
-    assert "anaphora_resolution_v0" in rules
+    assert "anaphora_resolution_v1" in rules
 
 
 def test_pipeline_off_by_default_keeps_pron_nodes():

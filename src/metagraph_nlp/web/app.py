@@ -5,8 +5,16 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from pathlib import Path
+
+# Bootstrap: путь к src/ может не подхватываться через editable .pth, если
+# абсолютный путь содержит не-ASCII символы (cp1251 vs UTF-8 коллизия в site.py
+# на русской Windows). Добавляем src/ в sys.path вручную через __file__.
+_SRC_DIR = Path(__file__).resolve().parents[2]
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 import streamlit as st
 import yaml
@@ -79,17 +87,40 @@ def _render_sidebar_config(config: Config) -> Config:
     config.anaphora.enabled = st.toggle(
         "Включить",
         value=config.anaphora.enabled,
-        help="Личные местоимения 3-го лица (он, она, оно, они) заменяются "
-             "на ближайший антецедент с согласованием по роду, числу и одушевлённости.",
+        help="Местоимения заменяются на найденный антецедент. PRON-узел "
+             "остаётся в графе, его лемма/upos обновляются на значения "
+             "антецедента; surface и original_lemma сохраняются для "
+             "трассируемости.",
     )
     if config.anaphora.enabled:
+        _pronoun_type_labels = {
+            "personal_3p": "Личные 3-го лица (он, она, оно, они)",
+            "possessive_3p": "Притяжательные (его, её, их)",
+            "reflexive": "Возвратные (себя, свой)",
+        }
+        selected_labels = st.multiselect(
+            "Типы местоимений",
+            options=list(_pronoun_type_labels.values()),
+            default=[
+                _pronoun_type_labels[t]
+                for t in config.anaphora.pronoun_types
+                if t in _pronoun_type_labels
+            ],
+            help="Какие типы местоимений разрешать. Возвратные используют "
+                 "subject текущей клаузы; личные и притяжательные ищут "
+                 "антецедент в окне предложений.",
+        )
+        label_to_type = {v: k for k, v in _pronoun_type_labels.items()}
+        config.anaphora.pronoun_types = [label_to_type[l] for l in selected_labels]
+
         config.anaphora.search_window_sentences = st.slider(
             "Окно поиска антецедента",
             min_value=1,
             max_value=10,
             value=config.anaphora.search_window_sentences,
             help="Максимальное число предложений назад, в которых ищется "
-                 "подходящий антецедент для местоимения.",
+                 "подходящий антецедент для местоимения. Применимо к "
+                 "личным и притяжательным; возвратные смотрят в текущую клаузу.",
         )
         config.anaphora.require_animacy_match = st.toggle(
             "Требовать совпадения одушевлённости",
@@ -320,7 +351,12 @@ def main() -> None:
                     anaphora_data = [
                         {
                             "Местоимение": r.pronoun_surface,
+                            "Тип": r.pronoun_type,
                             "Антецедент": r.antecedent_lemma,
+                            "Стратегия": r.resolution_strategy,
+                            "Salience": r.salience_score
+                            if r.salience_score is not None
+                            else "—",
                             "Признаки": ", ".join(
                                 f"{k}={v}" for k, v in r.matched_features.items()
                             ),

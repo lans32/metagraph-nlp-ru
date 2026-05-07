@@ -32,6 +32,25 @@ class Node(BaseModel):
         default=None,
         description="id_in_sent исходного UD-токена (нумерация с 1) для якоря к feats.",
     )
+    original_lemma: str | None = Field(
+        default=None,
+        description=(
+            "Исходная лемма до замены анафорой. None для обычных узлов; "
+            "для PRON-узлов после anaphora_resolution_v1 содержит лемму "
+            "местоимения (например, 'он' при заменённом lemma='иван')."
+        ),
+    )
+    original_upos: str | None = Field(
+        default=None,
+        description="Исходный UPOS до замены анафорой (обычно PRON или DET).",
+    )
+    antecedent_node_id: str | None = Field(
+        default=None,
+        description=(
+            "ID узла-антецедента, если этот узел был заменён анафорой. "
+            "Связь с антецедентом для трассировки и виз-слоя."
+        ),
+    )
     provenance: Provenance
 
 

@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from metagraph_nlp.domain import Clause, Metagraph, SemanticGraph
+from metagraph_nlp.domain import Clause, Metagraph, Node, SemanticGraph
 from metagraph_nlp.viz.palette import color_for
 
 
@@ -17,6 +17,22 @@ def _escape(s: str) -> str:
 
 def _clause_text(clauses: list[Clause]) -> dict[str, str]:
     return {c.id: c.span.text for c in clauses}
+
+
+def _node_display_label(node: Node) -> str:
+    """Метка для виз-слоя; для заменённых анафорой — «Иван ←Он»."""
+    if node.antecedent_node_id and node.surface:
+        return f"{node.label} <-{node.surface}"
+    return node.label
+
+
+def _anaphora_tooltip_extra(node: Node) -> str:
+    if not node.antecedent_node_id:
+        return ""
+    return (
+        f" | replaced from pronoun: {node.original_lemma} "
+        f"({node.original_upos}) | antecedent={node.antecedent_node_id}"
+    )
 
 
 def graph_to_dot(graph: SemanticGraph, clauses: list[Clause]) -> str:
@@ -38,9 +54,10 @@ def graph_to_dot(graph: SemanticGraph, clauses: list[Clause]) -> str:
             f"{n.id} | {lemma_part} | upos={n.upos or n.kind} | "
             f"rule={n.provenance.rule} | "
             f"clause: {by_clause.get(n.clause_id or '', '')}"
+            f"{_anaphora_tooltip_extra(n)}"
         )
         lines.append(
-            f'  "{n.id}" [label="{_escape(n.label)}", '
+            f'  "{n.id}" [label="{_escape(_node_display_label(n))}", '
             f'fillcolor="{color}", tooltip="{tooltip}"];'
         )
 
@@ -108,10 +125,11 @@ def metagraph_to_dot(
             f"{n.id} | {lemma_part} | upos={n.upos or n.kind} | "
             f"rule={n.provenance.rule} | "
             f"clause: {by_clause.get(n.clause_id or '', '')}"
+            f"{_anaphora_tooltip_extra(n)}"
         )
         lines.append(
             f'  "{n.id}" [shape=ellipse, style="filled", '
-            f'fillcolor="{color}", label="{_escape(n.label)}", '
+            f'fillcolor="{color}", label="{_escape(_node_display_label(n))}", '
             f'tooltip="{tooltip}"];'
         )
 
