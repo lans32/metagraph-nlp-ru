@@ -40,3 +40,12 @@ class IdFactory:
 
     def medge(self) -> str:
         return self.next_id("medge")
+
+    def snapshot(self) -> dict[str, int]:
+        return dict(self._counters)
+
+    @classmethod
+    def from_snapshot(cls, counters: dict[str, int]) -> "IdFactory":
+        f = cls()
+        f._counters = dict(counters)
+        return f

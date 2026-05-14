@@ -3,12 +3,17 @@
 Каждая стадия — явный вызов с явным входом и выходом (CLAUDE.md §9.6).
 Морфо-синтаксический парсер инжектируется через аргумент `parser` — это
 позволяет подменять реализацию в тестах (fake) и в продакшене (natasha).
+
+Pipeline разделён на две фазы:
+- Phase 1 (run_phase1): text → semantic graph. Тяжёлая, кэшируется в UI.
+- Phase 2 (run_phase2): semantic graph → metagraph. Лёгкая, перезапускается
+  мгновенно при смене настроек агрегации.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from metagraph_nlp.logging_config import setup_logging
@@ -18,6 +23,7 @@ logger = logging.getLogger("metagraph_nlp.pipeline")
 from metagraph_nlp.aggregators import (
     aggregate_clauses_to_metanodes,
     aggregate_clauses_to_paragraphs,
+    aggregate_entity_centric,
     aggregate_entity_clusters,
     aggregate_predicate_class_clusters,
     build_shared_entity_metaedges,
@@ -47,6 +53,22 @@ from metagraph_nlp.parsers.predicate_lexicon import load_predicate_classes
 from metagraph_nlp.parsers.morphsyntax import MorphSyntaxParser, ParsedSentence
 from metagraph_nlp.profiling import PipelineMetrics, measure_stage
 from metagraph_nlp.provenance import AuditLog
+
+
+@dataclass
+class Phase1Result:
+    """Результат Phase 1: text → semantic graph. Кэшируется в UI."""
+
+    document: Document
+    sentences: list[Sentence]
+    parsed_sentences: dict[str, ParsedSentence]
+    clauses: list[Clause]
+    graph: SemanticGraph
+    audit: AuditLog
+    config: Config
+    metrics: PipelineMetrics
+    id_snapshot: dict[str, int] = field(default_factory=dict)
+    anaphora_resolutions: list[AnaphoraResolution] | None = None
 
 
 @dataclass
@@ -86,13 +108,50 @@ def _default_parser() -> MorphSyntaxParser:
     return get_default_parser()
 
 
-def run(
+_WORKER_PARSER: MorphSyntaxParser | None = None
+
+
+def _worker_init(parser_name: str, malt_jar: str | None, malt_model: str | None) -> None:
+    global _WORKER_PARSER
+    cfg = Config()
+    cfg.morphsyntax.parser = parser_name
+    cfg.morphsyntax.malt_jar = malt_jar
+    cfg.morphsyntax.malt_model = malt_model
+    _WORKER_PARSER = get_default_parser(cfg)
+
+
+def _worker_parse(text: str) -> ParsedSentence:
+    assert _WORKER_PARSER is not None
+    return _WORKER_PARSER.parse(text)
+
+
+def _parse_sentences_parallel(
+    texts: list[str],
+    cfg: Config,
+    workers: int,
+) -> list[ParsedSentence]:
+    from concurrent.futures import ProcessPoolExecutor
+
+    with ProcessPoolExecutor(
+        max_workers=workers,
+        initializer=_worker_init,
+        initargs=(
+            cfg.morphsyntax.parser,
+            cfg.morphsyntax.malt_jar,
+            cfg.morphsyntax.malt_model,
+        ),
+    ) as pool:
+        return list(pool.map(_worker_parse, texts))
+
+
+def run_phase1(
     raw_text: str,
     *,
     config: Config | None = None,
     source_path: str | None = None,
     parser: MorphSyntaxParser | None = None,
-) -> PipelineResult:
+) -> Phase1Result:
+    """Phase 1: text → semantic graph. Тяжёлая фаза, кэшируется в UI."""
     cfg = config or Config()
     setup_logging(cfg.log_level)
     cfg_hash = cfg.hash()
@@ -132,18 +191,40 @@ def run(
     logger.info("segment: %d sentences", len(sentences))
 
     with measure_stage("parse", metrics) as sm:
-        active_parser = parser or _default_parser()
         parsed_sentences: dict[str, ParsedSentence] = {}
-        for s in sentences:
-            parsed_sentences[s.id] = active_parser.parse(s.span.text)
+        use_parallel = (
+            parser is None
+            and cfg.morphsyntax.workers > 1
+            and len(sentences) >= cfg.morphsyntax.parallel_threshold
+        )
+        if use_parallel:
+            texts = [s.span.text for s in sentences]
+            results = _parse_sentences_parallel(
+                texts, cfg, cfg.morphsyntax.workers
+            )
+            for s, parsed in zip(sentences, results):
+                parsed_sentences[s.id] = parsed
+            logger.info(
+                "parse: %d sentences parsed in parallel (workers=%d)",
+                len(parsed_sentences),
+                cfg.morphsyntax.workers,
+            )
+        else:
+            active_parser = parser or _default_parser()
+            for s in sentences:
+                parsed_sentences[s.id] = active_parser.parse(s.span.text)
+            logger.info("parse: %d sentences parsed sequentially", len(parsed_sentences))
         sm.output_count = len(parsed_sentences)
     audit.record(
         "parse",
         f"morphsyntax:{cfg.morphsyntax.parser}",
         inputs=[s.id for s in sentences],
         outputs=[f"parsed:{s.id}" for s in sentences],
+        params=(
+            {"workers": str(cfg.morphsyntax.workers)}
+            if use_parallel else None
+        ),
     )
-    logger.info("parse: %d sentences parsed", len(parsed_sentences))
 
     with measure_stage("clauses", metrics) as sm:
         clauses = extract_clauses(
@@ -161,11 +242,7 @@ def run(
     )
     logger.info("clauses: %d clauses extracted", len(clauses))
 
-    predicate_classes = (
-        load_predicate_classes(cfg.aggregation.predicate_classes_path)
-        if cfg.aggregation.predicate_class_cluster_enabled
-        else None
-    )
+    predicate_classes = load_predicate_classes(cfg.aggregation.predicate_classes_path)
 
     with measure_stage("graph_builder", metrics) as sm:
         graph = build_semantic_graph(
@@ -219,6 +296,40 @@ def run(
             outputs=[n.id for n in graph.nodes],
         )
         logger.info("np_collapse: %d nodes, %d edges after collapse", len(graph.nodes), len(graph.edges))
+
+    logger.info("phase1 complete: %.3fs", metrics.total_wall_seconds)
+
+    return Phase1Result(
+        document=document,
+        sentences=sentences,
+        parsed_sentences=parsed_sentences,
+        clauses=clauses,
+        graph=graph,
+        audit=audit,
+        config=cfg,
+        metrics=metrics,
+        id_snapshot=ids.snapshot(),
+        anaphora_resolutions=anaphora_resolutions,
+    )
+
+
+def run_phase2(
+    phase1: Phase1Result,
+    *,
+    config: Config | None = None,
+) -> PipelineResult:
+    """Phase 2: semantic graph → metagraph. Лёгкая фаза, перезапускается мгновенно."""
+    cfg = config or phase1.config
+    ids = IdFactory.from_snapshot(phase1.id_snapshot)
+    audit = AuditLog(events=list(phase1.audit.events))
+    metrics = PipelineMetrics(
+        stages=list(phase1.metrics.stages),
+        total_wall_seconds=phase1.metrics.total_wall_seconds,
+    )
+
+    graph = phase1.graph
+    clauses = phase1.clauses
+    sentences = phase1.sentences
 
     with measure_stage("aggregate_L1", metrics) as sm:
         metagraph = aggregate_clauses_to_metanodes(graph, clauses, ids)
@@ -286,6 +397,27 @@ def run(
             "aggregate L2 entity_cluster: %d metanodes", len(new_entity_nodes)
         )
 
+    if cfg.aggregation.entity_centric_enabled:
+        with measure_stage("aggregate_L2_entity_centric", metrics) as sm:
+            new_ec_nodes = aggregate_entity_centric(
+                metagraph,
+                graph,
+                ids,
+                min_freq=cfg.aggregation.entity_centric_min_freq,
+                propn_always=cfg.aggregation.entity_centric_propn_always,
+            )
+            sm.output_count = len(new_ec_nodes)
+        audit.record(
+            "aggregate",
+            "entity_centric_v0",
+            inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 1],
+            outputs=[mn.id for mn in new_ec_nodes],
+            params={"L2_strategy": "entity_centric"},
+        )
+        logger.info(
+            "aggregate L2 entity_centric: %d metanodes", len(new_ec_nodes)
+        )
+
     if cfg.aggregation.predicate_class_cluster_enabled:
         with measure_stage("aggregate_L2_predicate_class", metrics) as sm:
             new_pred_nodes = aggregate_predicate_class_clusters(
@@ -322,20 +454,32 @@ def run(
         )
         logger.info("aggregate L2-edges: %d topic_overlap metaedges", len(new_l2_medges))
 
-    logger.info("pipeline complete: %.3fs total", metrics.total_wall_seconds)
+    logger.info("phase2 complete: %.3fs total", metrics.total_wall_seconds)
 
     return PipelineResult(
-        document=document,
+        document=phase1.document,
         sentences=sentences,
-        parsed_sentences=parsed_sentences,
+        parsed_sentences=phase1.parsed_sentences,
         clauses=clauses,
         graph=graph,
         metagraph=metagraph,
         audit=audit,
         config=cfg,
         metrics=metrics,
-        anaphora_resolutions=anaphora_resolutions,
+        anaphora_resolutions=phase1.anaphora_resolutions,
     )
+
+
+def run(
+    raw_text: str,
+    *,
+    config: Config | None = None,
+    source_path: str | None = None,
+    parser: MorphSyntaxParser | None = None,
+) -> PipelineResult:
+    cfg = config or Config()
+    p1 = run_phase1(raw_text, config=cfg, source_path=source_path, parser=parser)
+    return run_phase2(p1, config=cfg)
 
 
 def run_from_file(

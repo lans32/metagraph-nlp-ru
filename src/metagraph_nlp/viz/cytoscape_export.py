@@ -9,6 +9,7 @@ provenance каждого элемента (§7.4, §10).
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import Path
 
 from metagraph_nlp.domain import Clause, Metagraph, SemanticGraph
@@ -94,10 +95,45 @@ def metagraph_to_cytoscape_elements(
                 "level": 0,
                 "rule": e.provenance.rule,
             },
-            "classes": "edge level-0",
+            "classes": "edge level-0 etype-base",
         })
 
+    shared_groups: dict[tuple[str, str], list] = defaultdict(list)
+    other_metaedges: list = []
     for me in metagraph.meta_edges:
+        if me.type == "shared_entity":
+            shared_groups[(me.source, me.target)].append(me)
+        else:
+            other_metaedges.append(me)
+
+    for (src, tgt), group in shared_groups.items():
+        lemmas = sorted({me.relation for me in group})
+        count = len(lemmas)
+        if count == 1:
+            label = lemmas[0]
+        else:
+            label = f"{count} общих: {', '.join(lemmas[:3])}" + (
+                "…" if count > 3 else ""
+            )
+        first = group[0]
+        elements.append({
+            "data": {
+                "id": first.id,
+                "source": src,
+                "target": tgt,
+                "label": label,
+                "kind": "metaedge",
+                "type": "shared_entity",
+                "level": first.level,
+                "rule": first.provenance.rule,
+                "lemmas": ", ".join(lemmas),
+                "bundled_count": count,
+                "bundled_ids": ", ".join(me.id for me in group),
+            },
+            "classes": f"metaedge level-{first.level} etype-shared_entity",
+        })
+
+    for me in other_metaedges:
         elements.append({
             "data": {
                 "id": me.id,
@@ -109,7 +145,7 @@ def metagraph_to_cytoscape_elements(
                 "level": me.level,
                 "rule": me.provenance.rule,
             },
-            "classes": f"metaedge level-{me.level}",
+            "classes": f"metaedge level-{me.level} etype-{me.type}",
         })
 
     # Холархия: для каждой L1-метавершины, входящей более чем в один L2,
@@ -132,7 +168,7 @@ def metagraph_to_cytoscape_elements(
                     "level": mn.level,
                     "rule": "holarchy_contains_v0",
                 },
-                "classes": f"contains-edge level-{mn.level}",
+                "classes": f"contains-edge level-{mn.level} etype-contains",
             })
 
     return elements
@@ -160,18 +196,30 @@ _HTML_TEMPLATE = """\
   #sidebar table { width: 100%; border-collapse: collapse; }
   #sidebar td { padding: 3px 4px; border-bottom: 1px solid #eee; vertical-align: top; }
   #sidebar td:first-child { font-weight: 600; white-space: nowrap; color: #555; }
-  #controls { padding: 8px 12px; background: #f4f4f4; border-bottom: 1px solid #ddd; }
+  #controls { padding: 8px 12px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 13px; }
   #controls label { margin-right: 12px; cursor: pointer; user-select: none; }
+  #controls .row { margin-bottom: 4px; }
+  #controls .row:last-child { margin-bottom: 0; }
+  #controls strong { display: inline-block; min-width: 80px; }
   #main { display: flex; flex-direction: column; flex: 1; }
 </style>
 </head>
 <body>
 <div id="main">
   <div id="controls">
-    <strong>Уровни:</strong>
-    <label><input type="checkbox" class="level-toggle" data-level="0" checked> L0 (узлы)</label>
-    <label><input type="checkbox" class="level-toggle" data-level="1" checked> L1 (клаузы)</label>
-    <label><input type="checkbox" class="level-toggle" data-level="2" checked> L2 (параграфы)</label>
+    <div class="row">
+      <strong>Уровни:</strong>
+      <label><input type="checkbox" class="level-toggle" data-level="0" __L0_CHECKED__> L0 (узлы)</label>
+      <label><input type="checkbox" class="level-toggle" data-level="1" __L1_CHECKED__> L1 (клаузы)</label>
+      <label><input type="checkbox" class="level-toggle" data-level="2" __L2_CHECKED__> L2 (агрегаты)</label>
+    </div>
+    <div class="row">
+      <strong>Рёбра:</strong>
+      <label><input type="checkbox" class="etype-toggle" data-etype="base" __E_BASE_CHECKED__> базовые (L0)</label>
+      <label><input type="checkbox" class="etype-toggle" data-etype="shared_entity" __E_SHARED_ENTITY_CHECKED__> shared_entity</label>
+      <label><input type="checkbox" class="etype-toggle" data-etype="topic_overlap" __E_TOPIC_OVERLAP_CHECKED__> topic_overlap</label>
+      <label><input type="checkbox" class="etype-toggle" data-etype="contains" __E_CONTAINS_CHECKED__> contains</label>
+    </div>
   </div>
   <div id="cy"></div>
 </div>
@@ -269,6 +317,7 @@ var cy = cytoscape({
       style: {
         "line-color": "#333",
         "target-arrow-color": "#333",
+        "width": "mapData(bundled_count, 1, 10, 2, 8)",
       }
     },
     {
@@ -334,10 +383,32 @@ cy.on("tap", function(evt) {
   }
 });
 
+var hiddenLevels = __HIDDEN_LEVELS_JSON__;
+hiddenLevels.forEach(function(lvl) {
+  cy.elements(".level-" + lvl).style("display", "none");
+});
+
+var hiddenEtypes = __HIDDEN_ETYPES_JSON__;
+hiddenEtypes.forEach(function(et) {
+  cy.elements(".etype-" + et).style("display", "none");
+});
+
 document.querySelectorAll(".level-toggle").forEach(function(cb) {
   cb.addEventListener("change", function() {
     var level = this.dataset.level;
     var sel = ".level-" + level;
+    if (this.checked) {
+      cy.elements(sel).style("display", "element");
+    } else {
+      cy.elements(sel).style("display", "none");
+    }
+  });
+});
+
+document.querySelectorAll(".etype-toggle").forEach(function(cb) {
+  cb.addEventListener("change", function() {
+    var etype = this.dataset.etype;
+    var sel = ".etype-" + etype;
     if (this.checked) {
       cy.elements(sel).style("display", "element");
     } else {
@@ -351,15 +422,45 @@ document.querySelectorAll(".level-toggle").forEach(function(cb) {
 """
 
 
+_ALL_ETYPES = ("base", "shared_entity", "topic_overlap", "contains")
+
+
 def render_cytoscape_html(
     metagraph: Metagraph,
     graph: SemanticGraph,
     clauses: list[Clause],
     out_path: Path,
+    *,
+    hidden_levels: list[int] | None = None,
+    hidden_etypes: list[str] | None = None,
 ) -> None:
-    """Записать self-contained Cytoscape.js HTML-файл."""
+    """Записать self-contained Cytoscape.js HTML-файл.
+
+    Args:
+        hidden_levels: уровни (0/1/2), чекбоксы которых стартуют
+            выключенными. Используется для больших графов: ``[0, 1]``
+            скрывает базовый слой и L1, оставляя только L2-агрегаты.
+        hidden_etypes: типы рёбер (``base`` / ``shared_entity`` /
+            ``topic_overlap`` / ``contains``), стартующие скрытыми.
+    """
     elements = metagraph_to_cytoscape_elements(metagraph, graph, clauses)
     elements_json = json.dumps(elements, ensure_ascii=False, indent=None)
+    hidden = set(hidden_levels or [])
+    hidden_e = set(hidden_etypes or [])
     html = _HTML_TEMPLATE.replace("__ELEMENTS_JSON__", elements_json)
+    html = html.replace(
+        "__HIDDEN_LEVELS_JSON__",
+        json.dumps(sorted(hidden)),
+    )
+    html = html.replace(
+        "__HIDDEN_ETYPES_JSON__",
+        json.dumps(sorted(hidden_e)),
+    )
+    for lvl in (0, 1, 2):
+        token = f"__L{lvl}_CHECKED__"
+        html = html.replace(token, "" if lvl in hidden else "checked")
+    for etype in _ALL_ETYPES:
+        token = f"__E_{etype.upper()}_CHECKED__"
+        html = html.replace(token, "" if etype in hidden_e else "checked")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")

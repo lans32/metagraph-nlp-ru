@@ -18,16 +18,20 @@ raw text → normalize → sentences → parse (UD) → clauses → semantic gra
 
 ## Возможности
 
+- **Двухфазный pipeline (`run_phase1` / `run_phase2`)**: тяжёлая фаза `text → semantic graph` отделена от лёгкой фазы агрегации. В Streamlit-UI Phase 1 кэшируется в `session_state`, Phase 2 перезапускается мгновенно при смене настроек или пресета — без перепарсинга.
+- **Пресеты агрегации**: 6 предустановленных режимов (`Только клаузы`, `По сущностям`, `По параграфам`, `По семантике предикатов`, `Полный`, `Пользовательский`) — для демо и быстрого переключения между стратегиями без россыпи тоглов.
 - **Типизация клауз**: main, coord, compl, xcompl, adverbial, relative, participial — по UD-deprel предиката.
-- **Многоуровневый метаграф (холархия)**: L0 (узлы/рёбра) → L1 (клаузы, shared_entity) → L2 (параграфы, entity-кластеры по общим сущностям, predicate-class-кластеры по таксономии глаголов, topic_overlap). Одна L1-клауза может одновременно входить в несколько L2-метавершин (например, в свой параграф и в тематический кластер).
-- **Содержательные labels у L2-метавершин**: самая частая значимая лемма во фрагменте (для paragraph и entity_cluster) либо имя семантического класса (для predicate_class_cluster).
+- **Многоуровневый метаграф (холархия)**: L0 (узлы/рёбра) → L1 (клаузы, shared_entity) → L2 (параграфы, entity-кластеры по общим сущностям, **entity-centric метавершины** — по одной на значимую сущность, predicate-class-кластеры по таксономии глаголов, topic_overlap). Одна L1-клауза может одновременно входить в несколько L2-метавершин.
+- **Содержательные labels у L2-метавершин**: самая частая значимая лемма во фрагменте (для paragraph и entity_cluster), сама лемма (для entity_centric), имя семантического класса (для predicate_class_cluster).
 - **Минимальная таксономия глаголов**: ручной YAML-словарь `configs/predicate_classes.yaml` (motion, communication, cognition, perception, possession, creation, change_of_state, causation), поле `Edge.predicate_class`, агрегатор `predicate_class_cluster_v0`.
 - **NP collapse**: свёртка именных групп (NOUN + amod/nmod/det) в один узел с составной леммой.
 - **Разрешение анафоры (v1)**: rule-based замена-в-узле для личных, притяжательных 3-го лица и возвратных местоимений (он/она/оно/они, его/её/их с Poss=Yes, себя/свой). PRON-узел остаётся в графе с обновлёнными `lemma`/`upos`/`label` от антецедента; исходные значения сохраняются в `original_lemma`/`original_upos`, добавляется `antecedent_node_id`. Кандидаты ранжируются упрощённым Lappin–Leass salience-скорингом (subj / obj / obl / propn / recency / thematic / repeat_mention). Hard constraints — Gender / Number / Animacy. Возвратные берут subject текущей клаузы.
-- **Три формата визуализации**: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes и инспектором.
+- **Параллельный парсинг (ProcessPool)**: распараллеливание `parse`-стадии по предложениям через `ProcessPoolExecutor` (`morphsyntax.workers`, `morphsyntax.parallel_threshold`). На больших текстах даёт 3-4x ускорение; на малых — sequential без накладных расходов на spawn.
+- **Три формата визуализации**: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes, инспектором и **toggle-фильтрами** по уровням (L0/L1/L2) и типам рёбер (base/shared_entity/topic_overlap/contains). Параллельные `shared_entity` рёбра объединяются в одно с подписью «N общих лемм».
+- **Умная визуализация больших графов**: при превышении порога (default 500 элементов) автоматический рендер отключается; пользователь выбирает «Только L2 (быстро)» или «Полный вид (медленно)» — браузер не зависает.
 - **Пакетная обработка**: CLI-команда `batch` для каталога `.txt` файлов.
 - **Профилирование**: wall time + peak memory на каждую стадию pipeline.
-- **Streamlit веб-интерфейс**: ввод текста, структурированная панель конфигурации (морфосинтаксис, клаузы, граф, анафора, агрегация), просмотр графа/метаграфа, экспорт JSON.
+- **Streamlit веб-интерфейс**: ввод текста, двухсекционная панель конфигурации (Phase 1 / Phase 2 — мгновенно), просмотр графа/метаграфа, экспорт JSON. Загрузка файлов с авто-определением кодировки (utf-8 / utf-8-sig / cp1251 / cp866 / koi8-r).
 - **Два UD-парсера**: natasha (по умолчанию) и MaltParser (через subprocess).
 - **Audit trail**: каждый элемент имеет provenance с правилом, стадией и UTC-timestamp.
 
@@ -119,8 +123,11 @@ pytest -m 'slow or not slow'    # все тесты
 |----------|---------|----------|
 | `aggregation.shared_entity_enabled` | `true` | L1-метарёбра по общим леммам |
 | `aggregation.paragraph_enabled` | `true` | L2-метавершины по параграфам |
-| `aggregation.entity_cluster_enabled` | `true` | L2-метавершины — тематические кластеры по графу shared_entity (правило `entity_cluster_v0`) |
+| `aggregation.entity_cluster_enabled` | `true` | L2-метавершины — тематические кластеры по графу shared_entity (правило `entity_cluster_v0`, union-find) |
 | `aggregation.entity_cluster_min_size` | `2` | Минимальный размер тематического кластера |
+| `aggregation.entity_centric_enabled` | `false` | L2-метавершины — по одной на каждую значимую сущность (правило `entity_centric_v0`); альтернатива union-find кластерам |
+| `aggregation.entity_centric_min_freq` | `2` | Минимальное число клауз с леммой для entity-метавершины |
+| `aggregation.entity_centric_propn_always` | `true` | PROPN-леммы (имена собственные) включаются при freq ≥ 1 |
 | `aggregation.predicate_class_cluster_enabled` | `true` | L2-метавершины — кластеры клауз по классам предикатов из словаря (`predicate_class_cluster_v0`) |
 | `aggregation.predicate_class_cluster_min_size` | `2` | Минимальный размер predicate-класса |
 | `aggregation.predicate_classes_path` | `null` | Путь к YAML-словарю классов; `null` → встроенный `configs/predicate_classes.yaml` |
@@ -132,6 +139,8 @@ pytest -m 'slow or not slow'    # все тесты
 | `anaphora.pronoun_types` | `["personal_3p", "possessive_3p", "reflexive"]` | Покрываемые типы местоимений |
 | `anaphora.salience_weights` | см. `SalienceWeights` | Веса упрощённого Lappin–Leass-скоринга кандидатов |
 | `morphsyntax.parser` | `"natasha"` | UD-парсер: `natasha` или `maltparser` |
+| `morphsyntax.workers` | `1` | Число параллельных процессов для парсинга предложений (1 = последовательно) |
+| `morphsyntax.parallel_threshold` | `16` | Минимум предложений для активации параллельного парсинга |
 
 ## Дневник разработки
 
@@ -143,3 +152,4 @@ pytest -m 'slow or not slow'    # все тесты
 - [2026-05-06 — Разрешение анафоры (v0)](docs/journal/2026-05-06-anaphora-resolution-v0.md)
 - [2026-05-06 — Тематические кластеры и таксономия глаголов](docs/journal/2026-05-06-l2-entity-cluster-and-verb-taxonomy.md)
 - [2026-05-07 — Разрешение анафоры v1: замена-в-узле, salience-скоринг](docs/journal/2026-05-07-anaphora-resolution-v1.md)
+- [2026-05-14 — Двухфазный pipeline, пресеты, entity-centric, параллельный парсинг](docs/journal/2026-05-14-two-phase-pipeline-and-presets.md)

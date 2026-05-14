@@ -39,6 +39,24 @@ class MorphSyntaxConfig(BaseModel):
     )
     malt_jar: str | None = Field(default=None, description="Путь к maltparser.jar")
     malt_model: str | None = Field(default=None, description="Путь к модели MaltParser")
+    workers: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Число параллельных процессов для парсинга предложений. "
+            "1 — последовательно; >1 — ProcessPool. Активируется при "
+            "количестве предложений ≥ parallel_threshold."
+        ),
+    )
+    parallel_threshold: int = Field(
+        default=16,
+        ge=2,
+        description=(
+            "Минимальное число предложений для активации параллельного "
+            "парсинга. На малых документах накладные расходы spawn'а "
+            "превышают выигрыш."
+        ),
+    )
 
 
 class AggregationConfig(BaseModel):
@@ -92,6 +110,23 @@ class AggregationConfig(BaseModel):
     np_collapse_enabled: bool = Field(
         default=False,
         description="Сворачивать именные группы (NP) в один узел графа перед агрегацией.",
+    )
+    entity_centric_enabled: bool = Field(
+        default=False,
+        description=(
+            "Создавать L2-метавершины — по одной на каждую значимую сущность "
+            "(entity_centric_v0). Одна L1-клауза может входить в несколько "
+            "entity-метавершин (холархия)."
+        ),
+    )
+    entity_centric_min_freq: int = Field(
+        default=2,
+        ge=1,
+        description="Минимальное число клауз с леммой для создания entity-метавершины.",
+    )
+    entity_centric_propn_always: bool = Field(
+        default=True,
+        description="PROPN-леммы (имена собственные) включаются при freq >= 1.",
     )
 
 
@@ -182,6 +217,18 @@ class Config(BaseModel):
 
     def hash(self) -> str:
         blob = json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False).encode("utf-8")
+        return hashlib.sha256(blob).hexdigest()[:16]
+
+    def phase1_hash(self) -> str:
+        phase1_fields = {
+            "morphsyntax": self.morphsyntax.model_dump(),
+            "clauses": self.clauses.model_dump(),
+            "graph": self.graph.model_dump(),
+            "anaphora": self.anaphora.model_dump(),
+            "np_collapse_enabled": self.aggregation.np_collapse_enabled,
+            "predicate_classes_path": self.aggregation.predicate_classes_path,
+        }
+        blob = json.dumps(phase1_fields, sort_keys=True, ensure_ascii=False).encode("utf-8")
         return hashlib.sha256(blob).hexdigest()[:16]
 
 

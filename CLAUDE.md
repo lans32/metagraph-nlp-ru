@@ -34,33 +34,41 @@
 
 ## 2. MVP scope
 
-Текущий pipeline:
+Текущий pipeline разделён на две фазы:
 
 ```
-raw text → normalize → sentences → parse (UD) → clauses (typed)
-  → semantic graph → [anaphora resolution] → [NP collapse]
-  → metagraph L1 (clause metanodes + shared_entity)
-  → [coref clusters] → metagraph L2 (paragraphs + topic_overlap)
+Phase 1 (run_phase1) — тяжёлая, кэшируемая:
+  raw text → normalize → sentences → parse (UD) → clauses (typed)
+    → semantic graph → [anaphora resolution] → [NP collapse]
+
+Phase 2 (run_phase2) — лёгкая, мгновенно перезапускаемая:
+  semantic graph → metagraph L1 (clause metanodes + shared_entity)
+    → metagraph L2 (paragraphs + entity_clusters + entity_centric
+                    + predicate_class_clusters + topic_overlap)
 ```
 
 Стадии в квадратных скобках — опциональные, управляются конфигурацией.
+`run()` сохраняет старую сигнатуру и вызывает обе фазы — CLI и тесты
+работают без изменений. UI кэширует `Phase1Result` в `session_state` по
+ключу `sha256(text)[:16] + config.phase1_hash()` и перезапускает только
+Phase 2 при смене настроек агрегации.
 
 Что реализовано:
 
 1. приём входного русскоязычного текста;
 2. нормализация текста;
 3. разбиение текста на предложения с paragraph_index;
-4. морфо-синтаксический разбор (natasha или MaltParser);
+4. морфо-синтаксический разбор (natasha или MaltParser); опционально — параллельно через `ProcessPoolExecutor` (`morphsyntax.workers`, `morphsyntax.parallel_threshold`);
 5. выделение типизированных клауз (main, coord, compl, xcompl, adverbial, relative, participial);
 6. построение ориентированного семантического графа по UD-ролям;
 7. опциональное разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле): личные / притяжательные 3-го лица / возвратные местоимения → антецедент с hard constraints по Gender/Number/Animacy и упрощённым Lappin–Leass salience-скорингом;
 8. опциональная свёртка именных групп (NP collapse);
-9. многоуровневая агрегация: L1 (clause metanodes, shared_entity metaedges), L2 (paragraph metanodes, coref cluster metanodes, topic_overlap metaedges);
+9. многоуровневая агрегация: L1 (clause metanodes, shared_entity metaedges), L2 (paragraph metanodes, entity_cluster — connected components, entity_centric — per-lemma метавершины, predicate_class_cluster, topic_overlap metaedges);
 10. сохранение промежуточных артефактов (JSON, JSONL, YAML);
 11. профилирование (wall time + peak memory на стадию);
 12. audit trail с UTC-timestamps;
-13. визуализация: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes;
-14. Streamlit веб-интерфейс;
+13. визуализация: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes, toggle-фильтрами уровней и типов рёбер, объединением параллельных shared_entity;
+14. Streamlit веб-интерфейс: двухсекционный sidebar (Phase 1 / Phase 2 — мгновенно), пресеты агрегации, авто-упрощение визуализации больших графов до L2-only, авто-определение кодировки загружаемых файлов;
 15. CLI-команды `process` и `batch`.
 
 Что не входит в текущий scope:
@@ -209,7 +217,8 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - `clause_as_metanode_v0` — клауза → L1-метавершина;
 - `shared_entity_by_lemma_v0` — общие леммы → L1-метарёбра;
 - `paragraph_clauses_v0` — параграф → L2-метавершина;
-- `entity_cluster_v0` — connected components по shared_entity → L2-метавершины-«темы» (бывший `coref_cluster_v0`, переименован чтобы не путать с настоящей кореференцией);
+- `entity_cluster_v0` — connected components по shared_entity → L2-метавершины-«темы» (бывший `coref_cluster_v0`, переименован чтобы не путать с настоящей кореференцией). Из-за транзитивного замыкания union-find часто сливает большую часть текста в один компонент;
+- `entity_centric_v0` — по одной L2-метавершине на каждую значимую лемму, содержащую все L1-клаузы, где эта лемма упоминается. Альтернатива union-find: не «темы как компоненты», а «темы как сущности». Одна L1 может входить в несколько entity-метавершин (холархия). PROPN-леммы при `propn_always=true` включаются при freq ≥ 1 (имена собственные всегда значимы);
 - `predicate_class_cluster_v0` — кластеры клауз по семантическим классам предикатов из словаря `configs/predicate_classes.yaml` (motion / communication / cognition / …) → L2-метавершины;
 - `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра;
 - `anaphora_resolution_v1` — замена-в-узле для личных, притяжательных
@@ -561,7 +570,7 @@ OCR не считается частью семантического анали
 Отвечает за:
 
 - L1: `clause_as_metanode` (клауза → метавершина), `shared_entity_metaedges` (общие леммы → метарёбра);
-- L2: `paragraph_metanodes` (параграф → метавершина), `entity_cluster_metanodes` (connected components по shared_entity), `predicate_class_cluster` (кластеры клауз по классам предикатов), `topic_overlap_metaedges` (пересечение L1-фрагментов).
+- L2: `paragraph_metanodes` (параграф → метавершина), `entity_cluster_metanodes` (connected components по shared_entity), `entity_centric_metanodes` (по одной L2-метавершине на каждую значимую лемму; альтернатива union-find кластерам — даёт несколько per-entity групп вместо одной большой компоненты связности), `predicate_class_cluster` (кластеры клауз по классам предикатов), `topic_overlap_metaedges` (пересечение L1-фрагментов).
 
 ### 12.4. `transforms/`
 
@@ -605,11 +614,17 @@ OCR не считается частью семантического анали
 
 - интерактивный HTML через pyvis (`html_pyvis.py`);
 - статический GraphViz DOT (`dot.py`);
-- Cytoscape.js HTML с compound nodes и инспектором (`cytoscape_export.py`).
+- Cytoscape.js HTML с compound nodes, инспектором, toggle-фильтрами по уровням (L0/L1/L2) и типам рёбер (base/shared_entity/topic_overlap/contains), объединением параллельных shared_entity рёбер (`cytoscape_export.py`). Параметры `hidden_levels` / `hidden_etypes` позволяют рендерить только верхние уровни для больших графов.
 
 ### 12.10. `web/`
 
-Streamlit веб-интерфейс (`app.py`): ввод текста, конфиг, визуализация, экспорт.
+Streamlit веб-интерфейс (`app.py`):
+
+- двухсекционный sidebar: «Анализ текста» (Phase 1, требует пересчёта) и «Агрегация» (Phase 2, мгновенно);
+- пресеты агрегации (`presets.py`): `clauses_only` / `entities` / `paragraphs` / `predicates` / `full` / `custom` — каждый задаёт явный набор boolean-тоглов агрегации;
+- кэширование `Phase1Result` в `st.session_state` по ключу `text_hash + config.phase1_hash()` — смена настроек Phase 2 не пересчитывает парсинг;
+- авто-упрощение визуализации больших графов: при `total_elements > viz_limit` рендер не запускается автоматически, пользователь выбирает «Только L2 (быстро)» (`hidden_levels=[0,1]` + все рёбра скрыты) или «Полный вид (медленно)»;
+- авто-определение кодировки загружаемых файлов: utf-8 / utf-8-sig / cp1251 / cp866 / koi8-r.
 
 ---
 
@@ -661,6 +676,12 @@ Streamlit веб-интерфейс (`app.py`): ввод текста, конф�
 ### 15.3. Document-level parallelism
 
 Для будущей пакетной обработки основная единица параллелизма — документ.
+В рамках одного документа реализован дополнительный уровень параллелизма
+по предложениям на стадии `parse`: `ProcessPoolExecutor` с
+`initializer=_worker_init` загружает парсер один раз на воркер и
+переиспользует его. Активируется при `morphsyntax.workers > 1` и
+`len(sentences) >= morphsyntax.parallel_threshold` (default 16) — на
+малых документах spawn-overhead превышает выигрыш.
 
 ### 15.4. Serialization between stages
 
