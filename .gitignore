@@ -1,0 +1,17 @@
+материалы
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+artifacts/
+data/*
+!data/samples/
+.DS_Store
+.claude/

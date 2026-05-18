@@ -1,0 +1,7 @@
+pydantic>=2.6
+pyyaml>=6.0
+razdel>=0.5
+pyvis>=0.3.2
+natasha>=1.6
+pymorphy3>=2.0
+pymorphy3-dicts-ru>=2.4

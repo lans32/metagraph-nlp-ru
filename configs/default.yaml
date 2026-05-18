@@ -1,0 +1,48 @@
+paths:
+  data_dir: data
+  artifacts_dir: artifacts
+
+segmentation:
+  sentence_splitter: razdel
+
+morphsyntax:
+  parser: natasha
+
+clauses:
+  strategy: ud_subtree_clauses_v0
+
+graph:
+  builder: ud_roles_v0
+
+anaphora:
+  enabled: false
+  search_window_sentences: 2
+  require_animacy_match: true
+  pronoun_types:
+    - personal_3p
+
+aggregation:
+  linguistic_enabled: true
+  structural_enabled: false
+  semantic_enabled: false
+  shared_entity_enabled: true
+  shared_entity_min_lemma_len: 3
+  shared_entity_exclude_upos:
+    - PRON
+    - DET
+    - ADP
+    - AUX
+    - CCONJ
+    - SCONJ
+    - PART
+  paragraph_enabled: true
+  entity_cluster_enabled: true
+  entity_cluster_min_size: 2
+  predicate_class_cluster_enabled: true
+  predicate_class_cluster_min_size: 2
+  predicate_classes_path: null
+  topic_overlap_enabled: true
+  topic_overlap_min_overlap: 1
+  np_collapse_enabled: false
+
+log_level: INFO
