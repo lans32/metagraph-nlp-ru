@@ -38,7 +38,36 @@ class MorphSyntaxConfig(BaseModel):
         description="Имя реализации `MorphSyntaxParser`: natasha | maltparser.",
     )
     malt_jar: str | None = Field(default=None, description="Путь к maltparser.jar")
-    malt_model: str | None = Field(default=None, description="Путь к модели MaltParser")
+    malt_model: str | None = Field(default=None, description="Путь к модели MaltParser (.mco)")
+    java_bin: str = Field(
+        default="java",
+        description="Команда для запуска Java (для MaltParser). Кросс-платформенно.",
+    )
+    tree_tagger_bin: str | None = Field(
+        default=None,
+        description=(
+            "Путь к бинарю TreeTagger: Windows `bin/tree-tagger.exe`, "
+            "macOS/Linux — shell-скрипт `cmd/tree-tagger-russian`."
+        ),
+    )
+    tree_tagger_param: str | None = Field(
+        default=None,
+        description="Путь к параметр-файлу TreeTagger (`russian.par`).",
+    )
+    tree_tagger_tagset: str = Field(
+        default="msd_ru",
+        description=(
+            "Имя YAML-маппинга MSD→UD из `configs/treetagger_tagsets/`. "
+            "Можно указать абсолютный путь к произвольному YAML."
+        ),
+    )
+    malt_deprel_mapping: str | None = Field(
+        default=None,
+        description=(
+            "Опциональный YAML с маппингом deprel→UD (для не-UD моделей MaltParser). "
+            "None ⇒ identity, если модель уже UD-native."
+        ),
+    )
     workers: int = Field(
         default=1,
         ge=1,

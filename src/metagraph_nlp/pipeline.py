@@ -93,15 +93,61 @@ def get_default_parser(cfg: Config | None = None) -> MorphSyntaxParser:
         return get_natasha_parser()
 
     if parser_name == "maltparser":
-        from metagraph_nlp.parsers.morphsyntax.maltparser_adapter import MaltParserAdapter
-        if not cfg or not cfg.morphsyntax.malt_jar or not cfg.morphsyntax.malt_model:
-            raise ValueError("maltparser requires morphsyntax.malt_jar and morphsyntax.malt_model in config")
-        return MaltParserAdapter(
-            malt_jar=Path(cfg.morphsyntax.malt_jar),
-            model_path=Path(cfg.morphsyntax.malt_model),
-        )
+        return _build_maltparser_treetagger(cfg)
 
     raise ValueError(f"Unknown parser: {parser_name}")
+
+
+def _build_maltparser_treetagger(cfg: Config | None) -> MorphSyntaxParser:
+    """Собрать цепочку razdel → TreeTagger → MaltParser из конфига."""
+    from metagraph_nlp.parsers.morphsyntax.maltparser_adapter import TreeTaggerMaltParser
+    from metagraph_nlp.parsers.morphsyntax.treetagger_adapter import TreeTaggerMorph
+    from metagraph_nlp.parsers.morphsyntax.treetagger_tagmap import (
+        MsdTagMapper,
+        default_tagset_path,
+    )
+
+    if cfg is None:
+        raise ValueError("maltparser requires a full Config (not None)")
+    ms = cfg.morphsyntax
+    missing: list[str] = []
+    if not ms.tree_tagger_bin:
+        missing.append("tree_tagger_bin")
+    if not ms.tree_tagger_param:
+        missing.append("tree_tagger_param")
+    if not ms.malt_jar:
+        missing.append("malt_jar")
+    if not ms.malt_model:
+        missing.append("malt_model")
+    if missing:
+        raise ValueError(
+            "maltparser parser requires morphsyntax fields: "
+            + ", ".join(missing)
+        )
+
+    tagmap = MsdTagMapper(default_tagset_path(ms.tree_tagger_tagset))
+    morph = TreeTaggerMorph(
+        bin_path=Path(ms.tree_tagger_bin),
+        param_path=Path(ms.tree_tagger_param),
+        tagmap=tagmap,
+    )
+
+    deprel_mapping: dict[str, str] | None = None
+    if ms.malt_deprel_mapping:
+        import yaml as _yaml
+
+        with open(ms.malt_deprel_mapping, encoding="utf-8") as f:
+            loaded = _yaml.safe_load(f) or {}
+        if isinstance(loaded, dict):
+            deprel_mapping = {str(k): str(v) for k, v in loaded.items()}
+
+    return TreeTaggerMaltParser(
+        malt_jar=Path(ms.malt_jar),
+        model_path=Path(ms.malt_model),
+        morph=morph,
+        java_bin=ms.java_bin,
+        deprel_mapping=deprel_mapping,
+    )
 
 
 def _default_parser() -> MorphSyntaxParser:
@@ -111,12 +157,12 @@ def _default_parser() -> MorphSyntaxParser:
 _WORKER_PARSER: MorphSyntaxParser | None = None
 
 
-def _worker_init(parser_name: str, malt_jar: str | None, malt_model: str | None) -> None:
+def _worker_init(morphsyntax_payload: dict) -> None:
+    """Pickle-safe init: payload — dict из `MorphSyntaxConfig.model_dump()`."""
+    from metagraph_nlp.config import MorphSyntaxConfig
+
     global _WORKER_PARSER
-    cfg = Config()
-    cfg.morphsyntax.parser = parser_name
-    cfg.morphsyntax.malt_jar = malt_jar
-    cfg.morphsyntax.malt_model = malt_model
+    cfg = Config(morphsyntax=MorphSyntaxConfig(**morphsyntax_payload))
     _WORKER_PARSER = get_default_parser(cfg)
 
 
@@ -135,11 +181,7 @@ def _parse_sentences_parallel(
     with ProcessPoolExecutor(
         max_workers=workers,
         initializer=_worker_init,
-        initargs=(
-            cfg.morphsyntax.parser,
-            cfg.morphsyntax.malt_jar,
-            cfg.morphsyntax.malt_model,
-        ),
+        initargs=(cfg.morphsyntax.model_dump(),),
     ) as pool:
         return list(pool.map(_worker_parse, texts))
 

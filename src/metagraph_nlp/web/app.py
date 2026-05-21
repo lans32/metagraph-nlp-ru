@@ -47,7 +47,7 @@ def _render_phase1_config(config: Config) -> Config:
     parser_options = ["natasha", "maltparser"]
     parser_labels = {
         "natasha": "Natasha (рекомендуется)",
-        "maltparser": "MaltParser (внешний JAR)",
+        "maltparser": "MaltParser (razdel → TreeTagger → MaltParser)",
     }
     config.morphsyntax.parser = st.selectbox(
         "Парсер",
@@ -56,6 +56,11 @@ def _render_phase1_config(config: Config) -> Config:
         if config.morphsyntax.parser in parser_options else 0,
         format_func=lambda x: parser_labels.get(x, x),
     )
+    if config.morphsyntax.parser == "maltparser":
+        st.caption(
+            "Пути к TreeTagger и MaltParser задаются в YAML-конфиге "
+            "(`configs/malt_treetagger.yaml`). См. README."
+        )
 
     clause_options = ["ud_subtree_clauses_v0", "sentence_as_clause_v0"]
     clause_labels = {
