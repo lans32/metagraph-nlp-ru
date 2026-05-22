@@ -270,3 +270,4 @@ pytest -m 'slow or not slow'    # все тесты
 - [2026-05-07 — Разрешение анафоры v1: замена-в-узле, salience-скоринг](docs/journal/2026-05-07-anaphora-resolution-v1.md)
 - [2026-05-14 — Двухфазный pipeline, пресеты, entity-centric, параллельный парсинг](docs/journal/2026-05-14-two-phase-pipeline-and-presets.md)
 - [2026-05-22 — MaltParser + TreeTagger как объяснимый rule/ML-backend morphsyntax](docs/journal/2026-05-22-treetagger-malt-integration.md)
+- [2026-05-22 — np_collapse_v1: свёртка NP через UD-subtree, порядок по token_id, расширенный список deprel](docs/journal/2026-05-22-np-collapse-v1.md)

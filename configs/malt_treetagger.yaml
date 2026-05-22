@@ -44,6 +44,6 @@ aggregation:
   entity_cluster_enabled: true
   predicate_class_cluster_enabled: true
   topic_overlap_enabled: true
-  np_collapse_enabled: false
+  np_collapse_enabled: true
 
 log_level: INFO

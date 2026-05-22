@@ -140,6 +140,24 @@ class AggregationConfig(BaseModel):
         default=False,
         description="Сворачивать именные группы (NP) в один узел графа перед агрегацией.",
     )
+    np_collapse_deprels: list[str] = Field(
+        default_factory=lambda: [
+            "amod",
+            "det",
+            "nummod",
+            "appos",
+            "flat",
+            "flat:name",
+            "nmod:poss",
+        ],
+        description=(
+            "UD-deprel модификаторов, которые np_collapse_v1 включает в "
+            "свёртку. По умолчанию покрывает amod/det/nummod/appos/flat/"
+            "nmod:poss. nmod без `:poss` намеренно НЕ сворачивается — он "
+            "остаётся отдельным узлом + ребром (см. _expand_nmod). "
+            "Можно сузить (убрать nummod) или расширить (добавить acl)."
+        ),
+    )
     entity_centric_enabled: bool = Field(
         default=False,
         description=(

@@ -329,7 +329,13 @@ def run_phase1(
 
     if cfg.aggregation.np_collapse_enabled:
         with measure_stage("np_collapse", metrics) as sm:
-            graph = collapse_noun_phrases(graph, parsed_sentences, clauses, ids)
+            graph = collapse_noun_phrases(
+                graph,
+                parsed_sentences,
+                clauses,
+                ids,
+                include_deprels=set(cfg.aggregation.np_collapse_deprels),
+            )
             sm.output_count = len(graph.nodes) + len(graph.edges)
         audit.record(
             "np_collapse",
