@@ -58,7 +58,7 @@ Phase 2 при смене настроек агрегации.
 1. приём входного русскоязычного текста;
 2. нормализация текста;
 3. разбиение текста на предложения с paragraph_index;
-4. морфо-синтаксический разбор (natasha или MaltParser); опционально — параллельно через `ProcessPoolExecutor` (`morphsyntax.workers`, `morphsyntax.parallel_threshold`);
+4. морфо-синтаксический разбор: natasha **или** цепочка `razdel → TreeTagger → MaltParser`. TreeTagger даёт lemma + UPOS + feats через MSD-Russian tagset (Sharoff & Nivre), MaltParser — head + deprel; маппер `MsdTagMapper` переводит позиционные MSD-коды в UD-feats. Опционально — параллельно через `ProcessPoolExecutor` (`morphsyntax.workers`, `morphsyntax.parallel_threshold`);
 5. выделение типизированных клауз (main, coord, compl, xcompl, adverbial, relative, participial);
 6. построение ориентированного семантического графа по UD-ролям;
 7. опциональное разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле): личные / притяжательные 3-го лица / возвратные местоимения → антецедент с hard constraints по Gender/Number/Animacy и упрощённым Lappin–Leass salience-скорингом;
@@ -246,10 +246,20 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - агрегация по структурному изоморфизму;
 - сжатие одинаковых или почти одинаковых кусочков графа в единые метавершины.
 
-Реализованный элемент: `np_collapse_v0` — свёртка именных групп (NOUN +
-amod/nmod/det модификаторы) в один узел с составной леммой. Запускается
-после построения графа, до агрегации. Управляется конфигом
-`aggregation.np_collapse_enabled`.
+Реализованный элемент: `np_collapse_v1` — свёртка именных групп. Для
+каждого NOUN/PROPN-узла рекурсивно собирает UD-subtree модификаторов
+напрямую из `ParsedSentence` через `Node.token_id_in_sent` (а не через
+lookup-по-лемме среди узлов графа). Default `include_deprels`: `amod`,
+`det`, `nummod`, `appos`, `flat`, `flat:name`, `nmod:poss`. `nmod` без
+`:poss` намеренно НЕ сворачивается — он остаётся отдельным узлом + ребром
+через `_expand_nmod` («анализ клауз» — 2 связанные сущности, а не одна).
+Составная лемма формируется в порядке `Token.id_in_sent`, что даёт
+правильный порядок и для левых amod («молодой исследователь»), и для
+правых appos («исследователь иван»). Топология графа не меняется —
+обновляются только лемма/surface головы и поля `original_lemma`/
+`original_upos` (CLAUDE.md §9.4 «no silent collapse»). Запускается
+после построения графа, до агрегации. Управляется конфигами
+`aggregation.np_collapse_enabled` и `aggregation.np_collapse_deprels`.
 
 Полноценная структурная агрегация (изоморфизм подграфов, шаблоны) — задача
 дальнейшего развития.
@@ -550,7 +560,7 @@ OCR не считается частью семантического анали
 - нормализацию текста;
 - сегментацию на предложения (с paragraph_index);
 - выделение типизированных клауз (стратегии `ud_subtree_clauses_v0`, `sentence_as_clause_v0`);
-- адаптеры morphsyntax: `MorphSyntaxParser` Protocol, `natasha_adapter`, `maltparser_adapter`;
+- адаптеры morphsyntax: `MorphSyntaxParser` Protocol, `natasha_adapter`, `maltparser_adapter` (класс `TreeTaggerMaltParser`: цепочка razdel → TreeTagger → MaltParser), вспомогательный `treetagger_adapter` (`TreeTaggerMorph` — subprocess-обёртка TreeTagger как морфо-провайдера) и `treetagger_tagmap` (`MsdTagMapper` — MSD-Russian → UD UPOS+feats, словарь в `configs/treetagger_tagsets/msd_ru.yaml`);
 - разрешение анафоры (`anaphora.py`, правило `anaphora_resolution_v1`):
   rule-based замена-в-узле для личных, притяжательных 3-го лица и
   возвратных местоимений. Классификация по приоритету
@@ -568,7 +578,7 @@ OCR не считается частью семантического анали
 Отвечает за:
 
 - создание узлов и рёбер по UD-ролям (`from_clause.py`, билдер `ud_roles_v0`);
-- свёртку именных групп (`np_collapse.py`, опциональный шаг перед агрегацией).
+- свёртку именных групп (`np_collapse.py`, правило `np_collapse_v1`: рекурсивный обход UD-subtree через `token_id_in_sent`, сортировка по token-id, поддержка amod/det/nummod/appos/flat/nmod:poss; nmod без `:poss` остаётся отдельным узлом через `_expand_nmod`).
 
 ### 12.3. `aggregators/`
 

@@ -1,0 +1,49 @@
+# Конфиг для backend'а MaltParser + TreeTagger.
+# Пути приведены под локальную раскладку проекта (TreeTagger/ и maltparser/
+# в корне). При необходимости — заменить на абсолютные.
+
+paths:
+  data_dir: data
+  artifacts_dir: artifacts
+
+segmentation:
+  sentence_splitter: razdel
+
+morphsyntax:
+  parser: maltparser
+  # TreeTagger (морфо)
+  tree_tagger_bin: TreeTagger/bin/tree-tagger.exe
+  tree_tagger_param: TreeTagger/lib/russian.par
+  tree_tagger_tagset: msd_ru
+  # MaltParser (синтаксис)
+  malt_jar: maltparser/maltparser-1.9.2/maltparser-1.9.2.jar
+  # ВАЖНО: .mco-модели для русского официально нет. Обучи свою через
+  # `java -jar maltparser-1.9.2.jar -c ru_syntagrus -m learn \
+  #     -i UD_Russian-SynTagRus/ru_syntagrus-ud-train-a.conllu \
+  #     -if appdata/dataformat/conllu.xml`
+  # → получится файл ru_syntagrus.mco. См. README.
+  malt_model: maltparser/maltparser-1.9.2/ru_syntagrus.mco
+  java_bin: java
+  # malt_deprel_mapping: null  # модель обучена на UD → identity
+  workers: 1
+  parallel_threshold: 16
+
+clauses:
+  strategy: ud_subtree_clauses_v0
+
+graph:
+  builder: ud_roles_v0
+
+anaphora:
+  enabled: false
+
+aggregation:
+  linguistic_enabled: true
+  shared_entity_enabled: true
+  paragraph_enabled: true
+  entity_cluster_enabled: true
+  predicate_class_cluster_enabled: true
+  topic_overlap_enabled: true
+  np_collapse_enabled: true
+
+log_level: INFO

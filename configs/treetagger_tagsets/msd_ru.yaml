@@ -1,0 +1,105 @@
+# MSD-Russian tagset (Sharoff & Nivre 2011), TreeTagger russian.par
+# Маппинг главного символа MSD-кода → UD UPOS + scheme парсинга позиций.
+# Схемы (noun/verb/adj/pronoun/numeral/adp/simple) обрабатываются в
+# treetagger_tagmap.py; этот YAML описывает только словари значений.
+
+categories:
+  # Существительные: Nc<gender><number><case><animacy> / Np<...> = PROPN
+  N:
+    scheme: noun
+    upos_default: NOUN
+    subtype_upos:
+      c: NOUN
+      p: PROPN
+  # Глаголы: Vm<form><tense><person><number><gender><voice>-<aspect>
+  V:
+    scheme: verb
+    upos_default: VERB
+  # Прилагательные: Af<degree><gender><number><case><def>
+  A:
+    scheme: adj
+    upos_default: ADJ
+  # Местоимения: P<type><person><gender><number><case><animacy>
+  P:
+    scheme: pronoun
+    upos_default: PRON
+  # Наречия: R (без позиций)
+  R:
+    scheme: simple
+    upos_default: ADV
+  # Предлоги: Sp-<case>
+  S:
+    scheme: adp
+    upos_default: ADP
+  # Союзы: C (без позиций)
+  C:
+    scheme: simple
+    upos_default: CCONJ
+  # Частицы: Q (без позиций)
+  Q:
+    scheme: simple
+    upos_default: PART
+  # Числительные: M<type>...
+  M:
+    scheme: numeral
+    upos_default: NUM
+  # Междометия (редко встречаются, на будущее)
+  I:
+    scheme: simple
+    upos_default: INTJ
+
+# Литералы — целые теги, не префиксы
+punct_tags:
+  - SENT
+  - ","
+  - "-"
+  - "."
+  - ":"
+
+# Подчинительные союзы (лемма → SCONJ override; иначе CCONJ из categories)
+sconj_lemmas:
+  - что
+  - чтобы
+  - если
+  - когда
+  - пока
+  - хотя
+  - потому
+  - поэтому
+  - так
+  - как
+  - будто
+  - словно
+  - точно
+  - ибо
+  - дабы
+  - чем
+  - нежели
+  - раз
+
+values:
+  gender:  { m: Masc, f: Fem, n: Neut }
+  number:  { s: Sing, p: Plur }
+  case:    { n: Nom, g: Gen, d: Dat, a: Acc, i: Ins, l: Loc }
+  animacy: { y: Anim, n: Inan }
+  person:  { "1": "1", "2": "2", "3": "3" }
+  tense:   { p: Pres, s: Past, f: Fut }
+  aspect:  { e: Imp, p: Perf }
+  # mood и verbform закодированы в одной позиции MSD (pos 3 после "Vm")
+  # i=indicative, m=imperative, p=participle, g=gerund(deepric), n=infinitive
+  verb_form:
+    i: { Mood: Ind, VerbForm: Fin }
+    m: { Mood: Imp, VerbForm: Fin }
+    p: { VerbForm: Part }
+    g: { VerbForm: Conv }
+    n: { VerbForm: Inf }
+  voice:   { a: Act, p: Pass }
+  degree:  { p: Pos, c: Cmp, s: Sup }
+  # Краткая форма прилагательных и причастий (pos 6 для Adj, pos 9 для Verb-part)
+  variant: { s: Short }
+  # Подтипы числительного (M<type>...)
+  numeral_type:
+    c: { NumType: Card }
+    o: { NumType: Ord }
+    m: { NumType: Mult }
+    l: { NumType: Sets }
