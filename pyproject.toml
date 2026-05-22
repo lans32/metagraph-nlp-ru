@@ -23,6 +23,9 @@ dev = [
 web = [
     "streamlit>=1.30",
 ]
+lexicon = [
+    "ruwordnet>=0.0.5",
+]
 
 [project.scripts]
 metagraph-nlp = "metagraph_nlp.cli:main"

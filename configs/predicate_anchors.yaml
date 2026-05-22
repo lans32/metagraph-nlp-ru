@@ -1,0 +1,95 @@
+# Anchor-синсеты RuWordNet для предкомпиляции словаря predicate-классов.
+#
+# Каждая запись — корневой класс семантической иерархии глаголов.
+# `seed_lemma` разрешается в synset_id через ruwordnet API, итоговый
+# `resolved_synset_id` фиксируется здесь же для воспроизводимости.
+# `expected_hyponyms` — наблюдаемое число hyponyms первого уровня
+# (контрольное значение, помогает заметить дрейф RuWordNet).
+#
+# Используется скриптом scripts/build_predicate_lexicon.py — он
+# делает BFS hyponyms от каждого anchor до max_depth и собирает
+# lemma → [leaf, mid, root] в configs/predicate_classes_ruwordnet.yaml.
+#
+# Принципы выбора якорей:
+#   - Покрывают 8 классов исходного configs/predicate_classes.yaml
+#     (motion / communication / cognition / perception / possession /
+#     creation / change_of_state / causation) плюс 4 расширения
+#     (emotion, volition, existence, physical_action).
+#   - Якоря не пересекаются по hyponym-деревьям (проверено визуально).
+#   - Для маленьких корней (cognition, volition, existence)
+#     достаточно глубины BFS — на depth=3 они покрывают значимый
+#     объём лемм через средний уровень.
+
+version: 0
+anchors:
+  motion:
+    seed_lemma: "перемещаться"
+    label_ru: "движение, перемещение"
+    resolved_synset_id: "106587-V"
+    expected_hyponyms: 71
+
+  communication:
+    seed_lemma: "высказать"
+    label_ru: "речевая деятельность, высказывание"
+    resolved_synset_id: "106876-V"
+    expected_hyponyms: 29
+
+  cognition:
+    seed_lemma: "мыслить"
+    label_ru: "мыслительный процесс"
+    resolved_synset_id: "106467-V"
+    expected_hyponyms: 6
+
+  perception:
+    seed_lemma: "воспринимать"
+    label_ru: "ощущать, воспринимать"
+    resolved_synset_id: "106915-V"
+    expected_hyponyms: 15
+
+  possession:
+    seed_lemma: "иметь"
+    label_ru: "располагать, иметь в распоряжении"
+    resolved_synset_id: "149549-V"
+    expected_hyponyms: 10
+
+  creation:
+    seed_lemma: "создать"
+    label_ru: "создать, сделать существующим"
+    resolved_synset_id: "106493-V"
+    expected_hyponyms: 28
+
+  change_of_state:
+    seed_lemma: "изменяться"
+    label_ru: "изменение состояния"
+    resolved_synset_id: "106629-V"
+    expected_hyponyms: 75
+
+  causation:
+    seed_lemma: "обусловливать"
+    label_ru: "обусловливать, способствовать"
+    resolved_synset_id: "106473-V"
+    expected_hyponyms: 15
+
+  emotion:
+    seed_lemma: "переживать"
+    label_ru: "пережить, испытать (эмоцию, состояние)"
+    resolved_synset_id: "116921-V"
+    expected_hyponyms: 52
+
+  volition:
+    seed_lemma: "хотеть"
+    label_ru: "хотеть, иметь желание"
+    resolved_synset_id: "119928-V"
+    expected_hyponyms: 6
+
+  existence:
+    seed_lemma: "существовать"
+    label_ru: "существовать, быть, иметься"
+    resolved_synset_id: "106947-V"
+    expected_hyponyms: 8
+
+  physical_action:
+    seed_lemma: "ударить"
+    label_ru: "ударить, нанести физическое воздействие"
+    resolved_synset_id: "107404-V"
+    expected_hyponyms: 34

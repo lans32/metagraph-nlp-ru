@@ -219,7 +219,7 @@ UD-deprel предиката: `main`, `coord`, `compl`, `xcompl`, `adverbial`,
 - `paragraph_clauses_v0` — параграф → L2-метавершина;
 - `entity_cluster_v0` — connected components по shared_entity → L2-метавершины-«темы» (бывший `coref_cluster_v0`, переименован чтобы не путать с настоящей кореференцией). Из-за транзитивного замыкания union-find часто сливает большую часть текста в один компонент;
 - `entity_centric_v0` — по одной L2-метавершине на каждую значимую лемму, содержащую все L1-клаузы, где эта лемма упоминается. Альтернатива union-find: не «темы как компоненты», а «темы как сущности». Одна L1 может входить в несколько entity-метавершин (холархия). PROPN-леммы при `propn_always=true` включаются при freq ≥ 1 (имена собственные всегда значимы);
-- `predicate_class_cluster_v0` — кластеры клауз по семантическим классам предикатов из словаря `configs/predicate_classes.yaml` (motion / communication / cognition / …) → L2-метавершины;
+- `predicate_class_cluster_v0` — кластеры клауз по семантическим классам предикатов. Поддерживает два формата словаря: v0 — плоский ручной `configs/predicate_classes.yaml` (8 классов, ~100 лемм); v1 — иерархический `configs/predicate_classes_ruwordnet.yaml`, предкомпилированный из [RuWordNet 2.0](https://ruwordnet.ru/) скриптом `scripts/build_predicate_lexicon.py` (3000+ классов с hyponym-иерархией, 8000+ лемм, 12 anchor-синсетов). Для v1 правило создаёт L2-метавершины на нескольких уровнях иерархии одновременно (leaf / mid / root — управляется `aggregation.predicate_class_cluster_levels`) и опционально (`aggregation.predicate_hierarchy_edges_enabled`) добавляет L2-метарёбра типа `containment` между parent ↔ child predicate-кластерами — явная дендрограмма (§4.4, §9.3). Provenance каждой L2 хранит `anchor_synset_id` для трассировки до RuWordNet (§10);
 - `topic_overlap_v0` — пересечение L1-фрагментов → L2-метарёбра;
 - `anaphora_resolution_v1` — замена-в-узле для личных, притяжательных
   3-го лица и возвратных местоимений (он/она/оно/они, его/её/их с
@@ -556,7 +556,12 @@ OCR не считается частью семантического анали
   возвратных местоимений. Классификация по приоритету
   reflexive → possessive_3p → personal_3p, маршрутизация на
   `_find_clause_subject` (возвратные) или `_find_antecedent_by_search`
-  (остальные) с упрощённым Lappin–Leass salience-скорингом.
+  (остальные) с упрощённым Lappin–Leass salience-скорингом;
+- загрузка словаря predicate-классов (`predicate_lexicon.py`):
+  `load_predicate_classes` (v0 плоский / v1 иерархический — единый
+  обратный индекс) и `load_predicate_hierarchy` (только v1, возвращает
+  `PredicateHierarchy` с parent/level/anchor/lemma_paths; для v0 → None).
+  YAML-кэш по `path+mtime` предотвращает двойной парсинг в Phase 1.
 
 ### 12.2. `graph_builders/`
 
@@ -570,7 +575,7 @@ OCR не считается частью семантического анали
 Отвечает за:
 
 - L1: `clause_as_metanode` (клауза → метавершина), `shared_entity_metaedges` (общие леммы → метарёбра);
-- L2: `paragraph_metanodes` (параграф → метавершина), `entity_cluster_metanodes` (connected components по shared_entity), `entity_centric_metanodes` (по одной L2-метавершине на каждую значимую лемму; альтернатива union-find кластерам — даёт несколько per-entity групп вместо одной большой компоненты связности), `predicate_class_cluster` (кластеры клауз по классам предикатов), `topic_overlap_metaedges` (пересечение L1-фрагментов).
+- L2: `paragraph_metanodes` (параграф → метавершина), `entity_cluster_metanodes` (connected components по shared_entity), `entity_centric_metanodes` (по одной L2-метавершине на каждую значимую лемму; альтернатива union-find кластерам — даёт несколько per-entity групп вместо одной большой компоненты связности), `predicate_class_cluster` (кластеры клауз по классам предикатов — поддерживает multi-level иерархию из RuWordNet с опциональными `containment`-метарёбрами parent↔child), `topic_overlap_metaedges` (пересечение L1-фрагментов).
 
 ### 12.4. `transforms/`
 
@@ -594,6 +599,10 @@ OCR не считается частью семантического анали
 - `SemanticGraph`, `Metagraph`
 - `AnaphoraResolution` (запись о замене местоимения: `pronoun_type`,
   `resolution_strategy`, `salience_score`, `matched_features`)
+- `PredicateHierarchy` (дерево predicate-классов из RuWordNet:
+  `parent_of`, `level_of`, `anchor_of`, `label_of`, `lemma_paths`,
+  `metadata`; используется `predicate_class_cluster_v0` для multi-level
+  L2-агрегации)
 - `Provenance`, `IdFactory`
 
 ### 12.6. `io/`

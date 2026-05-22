@@ -2,24 +2,30 @@
 
 Правило ``predicate_class_cluster_v0`` (CLAUDE.md §5.5). Опирается на
 поле ``Edge.predicate_class``, заполненное в ``graph_builders.from_clause``
-по словарю ``configs/predicate_classes.yaml``.
+по словарю ``configs/predicate_classes*.yaml``.
 
 Алгоритм:
 1. Для каждой L1-метавершины (клаузы) собрать множество классов
    предикатов её рёбер.
 2. Перевернуть индекс: класс → [l1_mnode_id, ...].
-3. Для каждого класса с size ≥ min_cluster_size создать L2-метавершину
+3. Если задана иерархия (``hierarchy is not None``) и ``levels``,
+   фильтровать классы по ``hierarchy.level_of[cls] ∈ levels``.
+4. Для каждого класса с size ≥ ``min_cluster_size`` создать L2-метавершину
    ``type="predicate_class"``, ``label=<имя_класса>``.
+5. При ``create_containment_edges=True`` — добавить L2-метарёбра
+   ``containment`` (``relation="contains"``) между parent ↔ child
+   predicate-кластерами, обе из которых стали L2-метавершинами.
+   Это делает дендрограмму (CLAUDE.md §4.4) явной по §9.3.
 
-Холархия: одна L1-клауза с двумя глаголами разных классов попадает в
-обе соответствующие L2-метавершины (поддерживается моделью, см.
-CLAUDE.md §4.4 «дендрограмма»).
+Холархия (CLAUDE.md §4.4): одна L1-клауза с глаголом, чья лемма попадает
+в несколько ветвей RuWordNet, оказывается в нескольких L2-метавершинах
+одновременно — на разных уровнях абстракции (leaf / mid / root).
 
 Инварианты:
 - L1-клаузы без предикатов из словаря не попадают ни в один кластер;
-- ``label`` совпадает с именем семантического класса, что обеспечивает
-  читаемость метаграфа без дополнительных утилит;
-- ``provenance.notes`` хранит список конкретных лемм, попавших в кластер.
+- ``label`` совпадает с именем семантического класса для читаемости;
+- ``provenance.notes`` хранит class, level, parent, anchor_synset_id и
+  список конкретных лемм кластера (трассировка до RuWordNet, §10).
 """
 
 from __future__ import annotations
@@ -30,13 +36,17 @@ from metagraph_nlp.domain import (
     GraphFragment,
     IdFactory,
     Metagraph,
+    MetaEdge,
     MetaNode,
+    PredicateHierarchy,
     Provenance,
     SemanticGraph,
 )
 
 _STAGE = "aggregate"
 _RULE = "predicate_class_cluster_v0"
+_CONTAINMENT_TYPE = "containment"
+_CONTAINMENT_RELATION = "contains"
 
 
 def aggregate_predicate_class_clusters(
@@ -45,10 +55,28 @@ def aggregate_predicate_class_clusters(
     ids: IdFactory,
     *,
     min_cluster_size: int = 2,
+    hierarchy: PredicateHierarchy | None = None,
+    levels: list[str] | None = None,
+    create_containment_edges: bool = False,
 ) -> list[MetaNode]:
     """Создать L2-метавершины из кластеров клауз по predicate_class.
 
-    Мутирует ``metagraph.meta_nodes`` и возвращает созданные метавершины.
+    Параметры:
+        metagraph: текущий метаграф (мутируется — meta_nodes и meta_edges
+            расширяются).
+        graph: семантический граф документа.
+        ids: фабрика идентификаторов.
+        min_cluster_size: минимальное число L1 в кластере (по умолчанию 2).
+        hierarchy: иерархия классов для multi-level фильтра и containment
+            edges. None — поведение v0 (все классы как leaf, без рёбер).
+        levels: какие уровни иерархии материализовать в L2 (например
+            ["leaf", "mid", "root"]). None — все. Применяется только
+            когда hierarchy задана.
+        create_containment_edges: создавать ли L2-метарёбра contains
+            между parent ↔ child predicate-кластерами.
+
+    Возвращает список созданных метавершин (метарёбра — побочный эффект
+    в ``metagraph.meta_edges``).
     """
 
     edge_index = {e.id: e for e in graph.edges}
@@ -74,28 +102,84 @@ def aggregate_predicate_class_clusters(
                 base_lemma = edge.relation.split("_", 1)[0]
                 lemmas_by_class[cls].add(base_lemma)
 
-    created: list[MetaNode] = []
+    # Фильтр по уровням иерархии (только когда hierarchy задана).
+    if hierarchy is not None and levels:
+        allowed_levels = set(levels)
+        by_class = {
+            cls: members
+            for cls, members in by_class.items()
+            if hierarchy.level_of.get(cls, "leaf") in allowed_levels
+        }
+
+    # class_slug → созданная mnode (нужно для containment-рёбер).
+    created_by_class: dict[str, MetaNode] = {}
+
     for cls in sorted(by_class.keys()):
         members = sorted(by_class[cls])
         if len(members) < min_cluster_size:
             continue
         lemmas = sorted(lemmas_by_class[cls])
-        created.append(
-            MetaNode(
-                id=ids.mnode(),
-                type="predicate_class",
-                level=2,
-                label=cls,
-                fragment=GraphFragment(meta_node_ids=members),
-                provenance=Provenance(
-                    rule=_RULE,
-                    stage=_STAGE,
-                    inputs=members,
-                    document_id=doc_id,
-                    notes=f"predicate_class={cls}; lemmas={lemmas}",
-                ),
-            )
-        )
 
+        # Расширенный provenance для трассировки до RuWordNet.
+        if hierarchy is not None:
+            level = hierarchy.level_of.get(cls, "leaf")
+            parent = hierarchy.parent_of.get(cls)
+            anchor_synset = hierarchy.anchor_of.get(cls, "")
+            notes = (
+                f"predicate_class={cls}; level={level}; parent={parent}; "
+                f"anchor_synset={anchor_synset}; lemmas={lemmas}"
+            )
+        else:
+            notes = f"predicate_class={cls}; lemmas={lemmas}"
+
+        node = MetaNode(
+            id=ids.mnode(),
+            type="predicate_class",
+            level=2,
+            label=cls,
+            fragment=GraphFragment(meta_node_ids=members),
+            provenance=Provenance(
+                rule=_RULE,
+                stage=_STAGE,
+                inputs=members,
+                document_id=doc_id,
+                notes=notes,
+            ),
+        )
+        created_by_class[cls] = node
+
+    created = list(created_by_class.values())
     metagraph.meta_nodes.extend(created)
+
+    # Containment edges: parent_class L2 → child_class L2 (если обе созданы).
+    if create_containment_edges and hierarchy is not None and created_by_class:
+        new_edges: list[MetaEdge] = []
+        for child_cls, child_node in created_by_class.items():
+            parent_cls = hierarchy.parent_of.get(child_cls)
+            if not parent_cls:
+                continue
+            parent_node = created_by_class.get(parent_cls)
+            if parent_node is None:
+                continue
+            new_edges.append(
+                MetaEdge(
+                    id=ids.medge(),
+                    source=parent_node.id,
+                    target=child_node.id,
+                    relation=_CONTAINMENT_RELATION,
+                    type=_CONTAINMENT_TYPE,
+                    level=2,
+                    provenance=Provenance(
+                        rule=_RULE,
+                        stage=_STAGE,
+                        inputs=[parent_node.id, child_node.id],
+                        document_id=doc_id,
+                        notes=(
+                            f"containment parent={parent_cls} → child={child_cls}"
+                        ),
+                    ),
+                )
+            )
+        metagraph.meta_edges.extend(new_edges)
+
     return created

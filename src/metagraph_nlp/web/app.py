@@ -38,6 +38,11 @@ def _compute_cache_key(text: str, config: Config) -> str:
     return f"{text_hash}_{config.phase1_hash()}"
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_PREDICATE_LEXICON_DEFAULT = _REPO_ROOT / "configs" / "predicate_classes.yaml"
+_PREDICATE_LEXICON_RUWORDNET = _REPO_ROOT / "configs" / "predicate_classes_ruwordnet.yaml"
+
+
 def _render_phase1_config(config: Config) -> Config:
     """Настройки Phase 1: парсинг, клаузы, граф, анафора."""
 
@@ -56,6 +61,45 @@ def _render_phase1_config(config: Config) -> Config:
         if config.morphsyntax.parser in parser_options else 0,
         format_func=lambda x: parser_labels.get(x, x),
     )
+
+    # --- Словарь predicate-классов (влияет на Phase 1: Edge.predicate_class) ---
+    lexicon_options = ["default", "ruwordnet"]
+    lexicon_labels = {
+        "default": "Базовый (v0, ~100 лемм, 8 плоских классов)",
+        "ruwordnet": "RuWordNet (v1, ~8000 лемм, иерархия leaf/mid/root)",
+    }
+    if not _PREDICATE_LEXICON_RUWORDNET.exists():
+        lexicon_options = ["default"]
+        st.caption(
+            "ℹ️ Иерархический словарь не найден. Соберите его командой: "
+            "`python scripts/build_predicate_lexicon.py --anchors configs/predicate_anchors.yaml "
+            "--output configs/predicate_classes_ruwordnet.yaml`"
+        )
+
+    # Восстановить выбор из текущего предиката (если путь совпадает с одним из вариантов)
+    current_path = config.aggregation.predicate_classes_path or ""
+    if current_path and Path(current_path).name == _PREDICATE_LEXICON_RUWORDNET.name:
+        current_lexicon = "ruwordnet"
+    else:
+        current_lexicon = "default"
+    if current_lexicon not in lexicon_options:
+        current_lexicon = lexicon_options[0]
+
+    selected_lexicon = st.selectbox(
+        "Словарь predicate-классов",
+        options=lexicon_options,
+        index=lexicon_options.index(current_lexicon),
+        format_func=lambda x: lexicon_labels.get(x, x),
+        help=(
+            "Базовый — рукописный YAML с 8 классами. "
+            "RuWordNet — предкомпилированный иерархический словарь (3455 классов). "
+            "v1 необходим для multi-level кластеризации и containment-метарёбер."
+        ),
+    )
+    if selected_lexicon == "ruwordnet":
+        config.aggregation.predicate_classes_path = str(_PREDICATE_LEXICON_RUWORDNET)
+    else:
+        config.aggregation.predicate_classes_path = None
 
     clause_options = ["ud_subtree_clauses_v0", "sentence_as_clause_v0"]
     clause_labels = {
@@ -215,6 +259,44 @@ def _render_phase2_config(config: Config) -> Config:
                 min_value=2, max_value=10,
                 value=config.aggregation.predicate_class_cluster_min_size,
             )
+            # Multi-level + containment работают только с v1 (RuWordNet)
+            is_ruwordnet = (
+                config.aggregation.predicate_classes_path
+                and Path(config.aggregation.predicate_classes_path).name
+                == _PREDICATE_LEXICON_RUWORDNET.name
+            )
+            if is_ruwordnet:
+                level_labels = {"leaf": "leaf (узкие)", "mid": "mid (средние)", "root": "root (общие)"}
+                selected_labels = st.multiselect(
+                    "Уровни иерархии predicate-классов",
+                    options=list(level_labels.values()),
+                    default=[
+                        level_labels[lvl]
+                        for lvl in config.aggregation.predicate_class_cluster_levels
+                        if lvl in level_labels
+                    ],
+                    help=(
+                        "Только при v1 (RuWordNet). Можно отключать узкие/широкие "
+                        "уровни — например, оставить только root для обзорной картины."
+                    ),
+                )
+                label_to_lvl = {v: k for k, v in level_labels.items()}
+                config.aggregation.predicate_class_cluster_levels = [
+                    label_to_lvl[l] for l in selected_labels
+                ]
+                config.aggregation.predicate_hierarchy_edges_enabled = st.toggle(
+                    "Метарёбра иерархии (parent → child)",
+                    value=config.aggregation.predicate_hierarchy_edges_enabled,
+                    help=(
+                        "L2-метарёбра типа `containment` между родительским и дочерним "
+                        "predicate-кластером. Делает дендрограмму явной в графе."
+                    ),
+                )
+            else:
+                st.caption(
+                    "ℹ️ Multi-level и containment-метарёбра требуют словаря RuWordNet. "
+                    "Переключите словарь в секции «Анализ текста» выше."
+                )
         config.aggregation.topic_overlap_enabled = st.toggle(
             "Метарёбра topic_overlap",
             value=config.aggregation.topic_overlap_enabled,
@@ -333,6 +415,39 @@ def _render_results(result: PipelineResult, *, is_stale: bool = False) -> None:
     c3.metric("Узлы графа", len(result.graph.nodes))
     c4.metric("Рёбра графа", len(result.graph.edges))
     c5.metric("Метавершины", len(result.metagraph.meta_nodes))
+
+    # Разбивка метаэлементов по уровням и типам — помогает понять,
+    # какие правила сработали (особенно при отладке predicate-иерархии).
+    by_level: dict[int, int] = {}
+    for mn in result.metagraph.meta_nodes:
+        by_level[mn.level] = by_level.get(mn.level, 0) + 1
+    medges_by_type: dict[str, int] = {}
+    for me in result.metagraph.meta_edges:
+        medges_by_type[me.type] = medges_by_type.get(me.type, 0) + 1
+    pred_by_lvl: dict[str, int] = {}
+    for mn in result.metagraph.meta_nodes:
+        if mn.type == "predicate_class":
+            notes = mn.provenance.notes or ""
+            lvl = "unknown"
+            for part in notes.split(";"):
+                part = part.strip()
+                if part.startswith("level="):
+                    lvl = part.split("=", 1)[1].strip()
+                    break
+            pred_by_lvl[lvl] = pred_by_lvl.get(lvl, 0) + 1
+
+    breakdown_parts = []
+    if by_level:
+        levels_str = ", ".join(f"L{lvl}={n}" for lvl, n in sorted(by_level.items()))
+        breakdown_parts.append(f"метавершины по уровням: **{levels_str}**")
+    if pred_by_lvl:
+        pred_str = ", ".join(f"{k}={v}" for k, v in sorted(pred_by_lvl.items()))
+        breakdown_parts.append(f"predicate-классы по уровню иерархии: **{pred_str}**")
+    if medges_by_type:
+        medges_str = ", ".join(f"{k}={v}" for k, v in sorted(medges_by_type.items()))
+        breakdown_parts.append(f"метарёбра по типам: **{medges_str}**")
+    if breakdown_parts:
+        st.caption(" · ".join(breakdown_parts))
 
     st.subheader("Визуализация")
 

@@ -40,7 +40,12 @@ aggregation:
   entity_cluster_min_size: 2
   predicate_class_cluster_enabled: true
   predicate_class_cluster_min_size: 2
-  predicate_classes_path: null
+  predicate_classes_path: null  # null = legacy configs/predicate_classes.yaml (v0); для иерархии указать configs/predicate_classes_ruwordnet.yaml
+  predicate_class_cluster_levels:
+    - leaf
+    - mid
+    - root
+  predicate_hierarchy_edges_enabled: false
   topic_overlap_enabled: true
   topic_overlap_min_overlap: 1
   np_collapse_enabled: false

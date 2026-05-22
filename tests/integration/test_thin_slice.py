@@ -112,3 +112,83 @@ def test_thin_slice_writes_viz_artifacts(tmp_path: Path):
         p = out_dir / name
         assert p.exists(), f"missing viz artifact: {name}"
         assert p.stat().st_size > 0
+
+
+def test_thin_slice_predicate_hierarchy_multi_level():
+    """End-to-end: RuWordNet v1 словарь → L2 predicate-кластеры на нескольких уровнях.
+
+    Текст подобран так, чтобы все 4 глагола (читать/писать/говорить/слышать)
+    попали в communication и/или perception ветви RuWordNet, давая
+    предикат-кластеры на leaf+mid+root одновременно.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    ruwordnet_yaml = repo_root / "configs" / "predicate_classes_ruwordnet.yaml"
+    if not ruwordnet_yaml.exists():
+        pytest.skip("RuWordNet lexicon not built; run scripts/build_predicate_lexicon.py")
+
+    cfg = Config()
+    cfg.aggregation.predicate_classes_path = str(ruwordnet_yaml)
+    cfg.aggregation.predicate_class_cluster_levels = ["leaf", "mid", "root"]
+    cfg.aggregation.predicate_hierarchy_edges_enabled = True
+
+    sample = (
+        "Студент читает книгу. "
+        "Преподаватель говорит студенту правду. "
+        "Журналист пишет статью. "
+        "Слушатель слышит лекцию."
+    )
+
+    result = run(sample, config=cfg)
+
+    pred_l2 = [
+        mn for mn in result.metagraph.meta_nodes
+        if mn.type == "predicate_class"
+    ]
+    assert pred_l2, "ожидаются L2-кластеры по predicate_class"
+
+    # На multi-level: должны быть label'ы как минимум 2 разных длин
+    # (короткие root-классы типа 'communication' + длинные leaf-классы).
+    label_lengths = {len(mn.label or "") for mn in pred_l2}
+    assert len(label_lengths) >= 2, (
+        f"ожидаются predicate-кластеры разных уровней, видим labels: "
+        f"{[mn.label for mn in pred_l2]}"
+    )
+
+    # Хотя бы один кластер из communication-ветви (4 глагола → много путей).
+    communication_clusters = [
+        mn for mn in pred_l2
+        if mn.label and mn.label.startswith("communication")
+    ]
+    assert communication_clusters, (
+        f"ожидается хотя бы один кластер communication-ветви; "
+        f"видим: {[mn.label for mn in pred_l2]}"
+    )
+
+    # provenance.notes должны содержать metadata иерархии для v1.
+    for mn in communication_clusters:
+        assert "level=" in (mn.provenance.notes or "")
+        assert "anchor_synset=" in (mn.provenance.notes or "")
+
+    # При predicate_hierarchy_edges_enabled должны быть containment-рёбра.
+    containment_edges = [
+        me for me in result.metagraph.meta_edges
+        if me.type == "containment"
+    ]
+    if len(pred_l2) >= 2:
+        # Если есть хотя бы 2 кластера на разных уровнях одной ветви —
+        # должно быть хотя бы одно contains-ребро.
+        assert containment_edges, (
+            "ожидается хотя бы одно containment-метаребро при включённой "
+            "иерархии и наличии нескольких уровней"
+        )
+        for e in containment_edges:
+            assert e.relation == "contains"
+
+    # Audit: v1 hierarchy была применена.
+    pred_events = [
+        ev for ev in result.audit.events
+        if ev.rule == "predicate_class_cluster_v0"
+    ]
+    assert pred_events
+    params = pred_events[0].params or {}
+    assert params.get("hierarchy") == "v1"

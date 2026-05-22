@@ -49,7 +49,10 @@ from metagraph_nlp.parsers import (
     resolve_anaphora,
     split_sentences,
 )
-from metagraph_nlp.parsers.predicate_lexicon import load_predicate_classes
+from metagraph_nlp.parsers.predicate_lexicon import (
+    load_predicate_classes,
+    load_predicate_hierarchy,
+)
 from metagraph_nlp.parsers.morphsyntax import MorphSyntaxParser, ParsedSentence
 from metagraph_nlp.profiling import PipelineMetrics, measure_stage
 from metagraph_nlp.provenance import AuditLog
@@ -419,12 +422,21 @@ def run_phase2(
         )
 
     if cfg.aggregation.predicate_class_cluster_enabled:
+        predicate_hierarchy = load_predicate_hierarchy(
+            cfg.aggregation.predicate_classes_path
+        )
         with measure_stage("aggregate_L2_predicate_class", metrics) as sm:
             new_pred_nodes = aggregate_predicate_class_clusters(
                 metagraph,
                 graph,
                 ids,
                 min_cluster_size=cfg.aggregation.predicate_class_cluster_min_size,
+                hierarchy=predicate_hierarchy,
+                levels=cfg.aggregation.predicate_class_cluster_levels,
+                create_containment_edges=(
+                    cfg.aggregation.predicate_hierarchy_edges_enabled
+                    and predicate_hierarchy is not None
+                ),
             )
             sm.output_count = len(new_pred_nodes)
         audit.record(
@@ -432,10 +444,22 @@ def run_phase2(
             "predicate_class_cluster_v0",
             inputs=[mn.id for mn in metagraph.meta_nodes if mn.level == 1],
             outputs=[mn.id for mn in new_pred_nodes],
-            params={"L2_strategy": "predicate_class"},
+            params={
+                "L2_strategy": "predicate_class",
+                "hierarchy": "v1" if predicate_hierarchy is not None else "v0",
+                "levels": ",".join(cfg.aggregation.predicate_class_cluster_levels),
+                "containment_edges": str(
+                    cfg.aggregation.predicate_hierarchy_edges_enabled
+                    and predicate_hierarchy is not None
+                ),
+            },
         )
         logger.info(
-            "aggregate L2 predicate_class: %d metanodes", len(new_pred_nodes)
+            "aggregate L2 predicate_class: %d metanodes "
+            "(hierarchy=%s, levels=%s)",
+            len(new_pred_nodes),
+            "v1" if predicate_hierarchy is not None else "v0",
+            cfg.aggregation.predicate_class_cluster_levels,
         )
 
     if cfg.aggregation.topic_overlap_enabled:

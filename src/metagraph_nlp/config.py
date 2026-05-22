@@ -104,7 +104,25 @@ class AggregationConfig(BaseModel):
         default=None,
         description=(
             "Путь к YAML-словарю predicate-классов. None → "
-            "встроенный configs/predicate_classes.yaml."
+            "встроенный configs/predicate_classes.yaml (v0). "
+            "Для иерархической агрегации указать "
+            "configs/predicate_classes_ruwordnet.yaml (v1)."
+        ),
+    )
+    predicate_class_cluster_levels: list[str] = Field(
+        default_factory=lambda: ["leaf", "mid", "root"],
+        description=(
+            "Уровни иерархии для создания L2-кластеров predicate_class. "
+            "Применяется только для v1 словаря с иерархией; для v0 "
+            "все классы считаются leaf и фильтр игнорируется."
+        ),
+    )
+    predicate_hierarchy_edges_enabled: bool = Field(
+        default=False,
+        description=(
+            "Создавать L2-метарёбра containment между parent ↔ child "
+            "predicate-кластерами (явная дендрограмма по §9.3). "
+            "Имеет смысл только для v1 словаря."
         ),
     )
     np_collapse_enabled: bool = Field(
@@ -227,9 +245,33 @@ class Config(BaseModel):
             "anaphora": self.anaphora.model_dump(),
             "np_collapse_enabled": self.aggregation.np_collapse_enabled,
             "predicate_classes_path": self.aggregation.predicate_classes_path,
+            # Byte-hash содержимого словаря инвалидирует Phase 1 кэш
+            # при смене файла без смены пути (§10 audit trail).
+            "predicate_classes_sha256": _predicate_classes_file_sha256(
+                self.aggregation.predicate_classes_path
+            ),
         }
         blob = json.dumps(phase1_fields, sort_keys=True, ensure_ascii=False).encode("utf-8")
         return hashlib.sha256(blob).hexdigest()[:16]
+
+
+_DEFAULT_PREDICATE_LEXICON_PATH = (
+    Path(__file__).resolve().parents[2] / "configs" / "predicate_classes.yaml"
+)
+
+
+def _predicate_classes_file_sha256(path: str | None) -> str | None:
+    """SHA-256 содержимого YAML-словаря predicate-классов (16 hex chars).
+
+    Используется в :meth:`Config.phase1_hash` чтобы инвалидировать кэш
+    Phase 1 при смене содержимого файла без смены пути. Если путь None,
+    хешируется встроенный configs/predicate_classes.yaml. Если файл
+    отсутствует — возвращается None (hash просто пропустит это поле).
+    """
+    target = Path(path) if path else _DEFAULT_PREDICATE_LEXICON_PATH
+    if not target.exists():
+        return None
+    return hashlib.sha256(target.read_bytes()).hexdigest()[:16]
 
 
 def load_config(path: str | Path | None) -> Config:
