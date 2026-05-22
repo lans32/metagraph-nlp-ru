@@ -23,6 +23,12 @@ import yaml
 
 from metagraph_nlp.config import Config
 from metagraph_nlp.pipeline import PipelineResult, Phase1Result, run_phase1, run_phase2
+from metagraph_nlp.web.help import (
+    TOOLTIPS_COMMON,
+    TOOLTIPS_PHASE1,
+    TOOLTIPS_PHASE2,
+    render_help_tab,
+)
 from metagraph_nlp.web.presets import get_presets, get_preset_by_key, PRESET_KEYS
 
 
@@ -55,6 +61,7 @@ def _render_phase1_config(config: Config) -> Config:
         index=parser_options.index(config.morphsyntax.parser)
         if config.morphsyntax.parser in parser_options else 0,
         format_func=lambda x: parser_labels.get(x, x),
+        help=TOOLTIPS_PHASE1["parser"],
     )
 
     clause_options = ["ud_subtree_clauses_v0", "sentence_as_clause_v0"]
@@ -68,12 +75,13 @@ def _render_phase1_config(config: Config) -> Config:
         index=clause_options.index(config.clauses.strategy)
         if config.clauses.strategy in clause_options else 0,
         format_func=lambda x: clause_labels.get(x, x),
+        help=TOOLTIPS_PHASE1["clause_strategy"],
     )
 
     config.anaphora.enabled = st.toggle(
         "Разрешение анафоры",
         value=config.anaphora.enabled,
-        help="Замена местоимений на антецеденты (rule-based).",
+        help=TOOLTIPS_PHASE1["anaphora_enabled"],
     )
     if config.anaphora.enabled:
         _pronoun_type_labels = {
@@ -89,6 +97,7 @@ def _render_phase1_config(config: Config) -> Config:
                 for t in config.anaphora.pronoun_types
                 if t in _pronoun_type_labels
             ],
+            help=TOOLTIPS_PHASE1["anaphora_pronoun_types"],
         )
         label_to_type = {v: k for k, v in _pronoun_type_labels.items()}
         config.anaphora.pronoun_types = [label_to_type[l] for l in selected_labels]
@@ -97,16 +106,18 @@ def _render_phase1_config(config: Config) -> Config:
             "Окно поиска антецедента",
             min_value=1, max_value=10,
             value=config.anaphora.search_window_sentences,
+            help=TOOLTIPS_PHASE1["anaphora_search_window"],
         )
         config.anaphora.require_animacy_match = st.toggle(
             "Требовать совпадения одушевлённости",
             value=config.anaphora.require_animacy_match,
+            help=TOOLTIPS_PHASE1["anaphora_animacy_match"],
         )
 
     config.aggregation.np_collapse_enabled = st.toggle(
         "Свёртка именных групп (NP collapse)",
         value=config.aggregation.np_collapse_enabled,
-        help="NOUN + amod/nmod/det модификаторы в один узел.",
+        help=TOOLTIPS_PHASE1["np_collapse"],
     )
 
     import os
@@ -117,9 +128,9 @@ def _render_phase1_config(config: Config) -> Config:
         max_value=max(2, cpu_count),
         value=min(config.morphsyntax.workers, cpu_count),
         help=(
-            f"Активируется при ≥ {config.morphsyntax.parallel_threshold} предложений. "
-            f"На вашем ПК {cpu_count} ядер. Каждый воркер загружает модель парсера, "
-            "поэтому больше = больше памяти и медленнее старт."
+            f"{TOOLTIPS_PHASE1['workers']}\n\n"
+            f"Активируется при ≥ {config.morphsyntax.parallel_threshold} предложений; "
+            f"на вашем ПК {cpu_count} ядер."
         ),
     )
 
@@ -143,7 +154,7 @@ def _render_phase2_config(config: Config) -> Config:
         "Пресет",
         options=preset_names,
         index=current_idx,
-        help="Готовые комбинации настроек агрегации.",
+        help=TOOLTIPS_PHASE2["preset"],
     )
     selected_idx = preset_names.index(selected_name)
     selected_key = preset_keys[selected_idx]
@@ -159,71 +170,79 @@ def _render_phase2_config(config: Config) -> Config:
         config.aggregation.linguistic_enabled = st.toggle(
             "Лингвистическая агрегация",
             value=config.aggregation.linguistic_enabled,
-            help="Каждая клауза → метавершина L1.",
+            help=TOOLTIPS_PHASE2["linguistic"],
         )
         config.aggregation.shared_entity_enabled = st.toggle(
             "Метарёбра shared_entity",
             value=config.aggregation.shared_entity_enabled,
-            help="Метарёбра по общим леммам.",
+            help=TOOLTIPS_PHASE2["shared_entity"],
         )
         if config.aggregation.shared_entity_enabled:
             config.aggregation.shared_entity_min_lemma_len = st.slider(
                 "Мин. длина леммы",
                 min_value=1, max_value=10,
                 value=config.aggregation.shared_entity_min_lemma_len,
+                help=TOOLTIPS_PHASE2["shared_entity_min_lemma_len"],
             )
 
         st.caption("**Уровень L2**")
         config.aggregation.paragraph_enabled = st.toggle(
             "По параграфам",
             value=config.aggregation.paragraph_enabled,
+            help=TOOLTIPS_PHASE2["paragraph"],
         )
         config.aggregation.entity_cluster_enabled = st.toggle(
             "Кластеры (union-find)",
             value=config.aggregation.entity_cluster_enabled,
-            help="Connected components графа shared_entity.",
+            help=TOOLTIPS_PHASE2["entity_cluster"],
         )
         if config.aggregation.entity_cluster_enabled:
             config.aggregation.entity_cluster_min_size = st.slider(
                 "Мин. размер кластера",
                 min_value=2, max_value=10,
                 value=config.aggregation.entity_cluster_min_size,
+                help=TOOLTIPS_PHASE2["entity_cluster_min_size"],
             )
         config.aggregation.entity_centric_enabled = st.toggle(
             "По сущностям (entity-centric)",
             value=config.aggregation.entity_centric_enabled,
-            help="Отдельная L2-метавершина для каждой значимой сущности.",
+            help=TOOLTIPS_PHASE2["entity_centric"],
         )
         if config.aggregation.entity_centric_enabled:
             config.aggregation.entity_centric_min_freq = st.slider(
                 "Мин. частота сущности",
                 min_value=1, max_value=10,
                 value=config.aggregation.entity_centric_min_freq,
+                help=TOOLTIPS_PHASE2["entity_centric_min_freq"],
             )
             config.aggregation.entity_centric_propn_always = st.toggle(
                 "Имена собственные всегда",
                 value=config.aggregation.entity_centric_propn_always,
-                help="PROPN-леммы включаются при freq >= 1.",
+                help=TOOLTIPS_PHASE2["entity_centric_propn_always"],
             )
         config.aggregation.predicate_class_cluster_enabled = st.toggle(
             "По классам предикатов",
             value=config.aggregation.predicate_class_cluster_enabled,
+            help=TOOLTIPS_PHASE2["predicate_class"],
         )
         if config.aggregation.predicate_class_cluster_enabled:
             config.aggregation.predicate_class_cluster_min_size = st.slider(
                 "Мин. размер predicate-класса",
                 min_value=2, max_value=10,
                 value=config.aggregation.predicate_class_cluster_min_size,
+                help=TOOLTIPS_PHASE2["predicate_class_min_size"],
             )
         config.aggregation.topic_overlap_enabled = st.toggle(
             "Метарёбра topic_overlap",
             value=config.aggregation.topic_overlap_enabled,
+            help=TOOLTIPS_PHASE2["topic_overlap"],
         )
         if config.aggregation.topic_overlap_enabled:
             config.aggregation.topic_overlap_min_overlap = st.slider(
                 "Мин. пересечение",
                 min_value=1, max_value=10,
                 value=config.aggregation.topic_overlap_min_overlap,
+                help=TOOLTIPS_PHASE2["topic_overlap_min_overlap"],
             )
 
     return config
@@ -471,6 +490,7 @@ def main() -> None:
         config_file = st.file_uploader(
             "Загрузить конфиг (YAML)",
             type=["yaml", "yml"],
+            help=TOOLTIPS_COMMON["config_upload"],
         )
         config = _load_config(config_file)
         config = _render_phase1_config(config)
@@ -485,7 +505,7 @@ def main() -> None:
                 language="yaml",
             )
 
-    tab_text, tab_file = st.tabs(["Ввод текста", "Загрузка файла"])
+    tab_text, tab_file, tab_help = st.tabs(["Ввод текста", "Загрузка файла", "Справка"])
 
     text_input = ""
     with tab_text:
@@ -493,10 +513,15 @@ def main() -> None:
             "Русскоязычный текст",
             height=200,
             placeholder="Студент читает книгу в библиотеке. Преподаватель объясняет студенту теорему на лекции.",
+            help=TOOLTIPS_COMMON["text_area"],
         )
 
     with tab_file:
-        uploaded = st.file_uploader("Текстовый файл (.txt)", type=["txt"])
+        uploaded = st.file_uploader(
+            "Текстовый файл (.txt)",
+            type=["txt"],
+            help=TOOLTIPS_COMMON["file_uploader"],
+        )
         if uploaded:
             raw_bytes = uploaded.read()
             text_input = None
@@ -514,7 +539,14 @@ def main() -> None:
             else:
                 st.text_area("Содержимое файла", text_input, height=150, disabled=True)
 
-    if st.button("Анализировать текст", type="primary"):
+    with tab_help:
+        render_help_tab()
+
+    if st.button(
+        "Анализировать текст",
+        type="primary",
+        help=TOOLTIPS_COMMON["run_button"],
+    ):
         if not text_input or not text_input.strip():
             st.warning("Введите текст для обработки.")
         else:
