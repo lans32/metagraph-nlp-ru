@@ -281,16 +281,38 @@ def _render_phase2_config(config: Config) -> Config:
                 value=config.aggregation.predicate_class_cluster_min_size,
                 help=TOOLTIPS_PHASE2["predicate_class_min_size"],
             )
-            # Multi-level + containment работают только с v1 (RuWordNet)
-            is_ruwordnet = (
-                config.aggregation.predicate_classes_path
-                and Path(config.aggregation.predicate_classes_path).name
-                == _PREDICATE_LEXICON_RUWORDNET.name
+        config.aggregation.topic_overlap_enabled = st.toggle(
+            "Метарёбра topic_overlap",
+            value=config.aggregation.topic_overlap_enabled,
+            help=TOOLTIPS_PHASE2["topic_overlap"],
+        )
+        if config.aggregation.topic_overlap_enabled:
+            config.aggregation.topic_overlap_min_overlap = st.slider(
+                "Мин. пересечение",
+                min_value=1, max_value=10,
+                value=config.aggregation.topic_overlap_min_overlap,
+                help=TOOLTIPS_PHASE2["topic_overlap_min_overlap"],
             )
-            if is_ruwordnet:
-                level_labels = {"leaf": "leaf (узкие)", "mid": "mid (средние)", "root": "root (общие)"}
+
+    # --- Иерархия predicate-классов: показывается ВСЕГДА, если включён
+    # predicate_class_cluster и выбран RuWordNet (v1). Это отдельный
+    # блок вне `custom`, чтобы настраивать multi-level и containment
+    # можно было поверх любого пресета.
+    if config.aggregation.predicate_class_cluster_enabled:
+        is_ruwordnet = (
+            config.aggregation.predicate_classes_path
+            and Path(config.aggregation.predicate_classes_path).name
+            == _PREDICATE_LEXICON_RUWORDNET.name
+        )
+        if is_ruwordnet:
+            with st.expander("Иерархия predicate-классов (RuWordNet)", expanded=True):
+                level_labels = {
+                    "leaf": "leaf (узкие)",
+                    "mid": "mid (средние)",
+                    "root": "root (общие)",
+                }
                 selected_labels = st.multiselect(
-                    "Уровни иерархии predicate-классов",
+                    "Уровни иерархии",
                     options=list(level_labels.values()),
                     default=[
                         level_labels[lvl]
@@ -298,8 +320,10 @@ def _render_phase2_config(config: Config) -> Config:
                         if lvl in level_labels
                     ],
                     help=(
-                        "Только при v1 (RuWordNet). Можно отключать узкие/широкие "
-                        "уровни — например, оставить только root для обзорной картины."
+                        "Какие уровни иерархии материализовать в L2. "
+                        "leaf — самые узкие классы (например, communication_proiznesti_vygovorit), "
+                        "mid — промежуточные, root — широкие (motion, communication, ...). "
+                        "Можно оставить только root для обзорной картины."
                     ),
                 )
                 label_to_lvl = {v: k for k, v in level_labels.items()}
@@ -314,22 +338,10 @@ def _render_phase2_config(config: Config) -> Config:
                         "predicate-кластером. Делает дендрограмму явной в графе."
                     ),
                 )
-            else:
-                st.caption(
-                    "ℹ️ Multi-level и containment-метарёбра требуют словаря RuWordNet. "
-                    "Переключите словарь в секции «Анализ текста» выше."
-                )
-        config.aggregation.topic_overlap_enabled = st.toggle(
-            "Метарёбра topic_overlap",
-            value=config.aggregation.topic_overlap_enabled,
-            help=TOOLTIPS_PHASE2["topic_overlap"],
-        )
-        if config.aggregation.topic_overlap_enabled:
-            config.aggregation.topic_overlap_min_overlap = st.slider(
-                "Мин. пересечение",
-                min_value=1, max_value=10,
-                value=config.aggregation.topic_overlap_min_overlap,
-                help=TOOLTIPS_PHASE2["topic_overlap_min_overlap"],
+        else:
+            st.caption(
+                "ℹ️ Multi-level и containment-метарёбра требуют словаря RuWordNet. "
+                "Переключите словарь в секции «Анализ текста» выше."
             )
 
     return config
