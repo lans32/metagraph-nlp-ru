@@ -102,11 +102,7 @@ def _render_phase1_config(config: Config) -> Config:
         options=lexicon_options,
         index=lexicon_options.index(current_lexicon),
         format_func=lambda x: lexicon_labels.get(x, x),
-        help=(
-            "Базовый — рукописный YAML с 8 классами. "
-            "RuWordNet — предкомпилированный иерархический словарь (3455 классов). "
-            "v1 необходим для multi-level кластеризации и containment-метарёбер."
-        ),
+        help=TOOLTIPS_PHASE1["predicate_lexicon"],
     )
     if selected_lexicon == "ruwordnet":
         config.aggregation.predicate_classes_path = str(_PREDICATE_LEXICON_RUWORDNET)
@@ -319,12 +315,7 @@ def _render_phase2_config(config: Config) -> Config:
                         for lvl in config.aggregation.predicate_class_cluster_levels
                         if lvl in level_labels
                     ],
-                    help=(
-                        "Какие уровни иерархии материализовать в L2. "
-                        "leaf — самые узкие классы (например, communication_proiznesti_vygovorit), "
-                        "mid — промежуточные, root — широкие (motion, communication, ...). "
-                        "Можно оставить только root для обзорной картины."
-                    ),
+                    help=TOOLTIPS_PHASE2["predicate_hierarchy_levels"],
                 )
                 label_to_lvl = {v: k for k, v in level_labels.items()}
                 config.aggregation.predicate_class_cluster_levels = [
@@ -333,10 +324,7 @@ def _render_phase2_config(config: Config) -> Config:
                 config.aggregation.predicate_hierarchy_edges_enabled = st.toggle(
                     "Метарёбра иерархии (parent → child)",
                     value=config.aggregation.predicate_hierarchy_edges_enabled,
-                    help=(
-                        "L2-метарёбра типа `containment` между родительским и дочерним "
-                        "predicate-кластером. Делает дендрограмму явной в графе."
-                    ),
+                    help=TOOLTIPS_PHASE2["predicate_hierarchy_edges"],
                 )
         else:
             st.caption(
