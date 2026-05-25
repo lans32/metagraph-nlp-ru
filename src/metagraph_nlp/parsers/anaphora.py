@@ -24,7 +24,7 @@ Salience-скоринг (упрощённый Lappin–Leass): сумма вес
 расстояние, бонус за тематическую позицию и за повторное упоминание.
 Веса конфигурируются через `SalienceWeights`.
 
-Инвариант CLAUDE.md §9.4 «no silent collapse»: каждый заменённый узел
+Инвариант «no silent collapse»: каждый заменённый узел
 несёт `provenance.rule = anaphora_resolution_v1` и сохраняет оригинал в
 `original_lemma`/`original_upos`; журнал замен — `AnaphoraResolution`.
 """

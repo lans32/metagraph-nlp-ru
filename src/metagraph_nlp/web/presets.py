@@ -32,7 +32,6 @@ def _apply_clauses_only(config: Config) -> Config:
             "topic_overlap_enabled": False,
             "entity_cluster_enabled": False,
             "predicate_class_cluster_enabled": False,
-            "np_collapse_enabled": False,
             "entity_centric_enabled": False,
         },
     )
@@ -50,7 +49,6 @@ def _apply_entities(config: Config) -> Config:
             "topic_overlap_enabled": False,
             "entity_cluster_enabled": False,
             "predicate_class_cluster_enabled": False,
-            "np_collapse_enabled": False,
             "entity_centric_enabled": True,
         },
     )
@@ -68,7 +66,6 @@ def _apply_paragraphs(config: Config) -> Config:
             "topic_overlap_enabled": True,
             "entity_cluster_enabled": False,
             "predicate_class_cluster_enabled": False,
-            "np_collapse_enabled": False,
             "entity_centric_enabled": False,
         },
     )
@@ -88,7 +85,6 @@ def _apply_predicates(config: Config) -> Config:
             "predicate_class_cluster_enabled": True,
             "predicate_class_cluster_levels": ["leaf", "mid", "root"],
             "predicate_hierarchy_edges_enabled": True,
-            "np_collapse_enabled": False,
             "entity_centric_enabled": False,
         },
     )
@@ -108,7 +104,6 @@ def _apply_full(config: Config) -> Config:
             "predicate_class_cluster_enabled": True,
             "predicate_class_cluster_levels": ["leaf", "mid", "root"],
             "predicate_hierarchy_edges_enabled": True,
-            "np_collapse_enabled": False,
             "entity_centric_enabled": False,
         },
     )

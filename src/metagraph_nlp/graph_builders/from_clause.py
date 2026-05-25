@@ -3,7 +3,7 @@
 Для каждой клаузы определяется корневой предикат, поддерево токенов
 клаузы (с отсечением вложенных клауз), и прямые аргументы предиката
 по UD-ролям (nsubj, obj/iobj, obl). Лейблы узлов — леммы; исходная
-форма сохраняется в `surface` для трассируемости (CLAUDE.md §9.1).
+форма сохраняется в `surface` для трассируемости.
 
 Дополнительно:
 
@@ -162,17 +162,13 @@ def _expand_nmod(
 ) -> None:
     """Добавить nmod-подгруппы (предложные группы) как узлы+рёбра.
 
-    `nmod:poss` сюда не попадает — он обрабатывается np_collapse_v1 как
-    модификатор внутри NP (CLAUDE.md §5.2), и дублирование узла привело
-    бы к коллизии. Остальные `nmod`/`nmod:*` (предложные и генитивные
-    без posессива) — это отдельные сущности, связанные ребром.
+    Все `nmod`/`nmod:*` (включая `nmod:poss` — притяжательные определения,
+    и предложные/генитивные) — это отдельные сущности, связанные ребром.
     """
     for child in parsed.children_of(parent_token.id_in_sent):
         if child.id_in_sent not in clause_ids:
             continue
         if not _is_nmod(child.deprel):
-            continue
-        if child.deprel == "nmod:poss":
             continue
         prep = _find_preposition(child, parsed)
         nmod_node = _make_node(

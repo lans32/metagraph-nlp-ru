@@ -8,7 +8,7 @@ hyponym-дерево RuWordNet от каждого якоря до ``--max-depth
 - ``lemmas``: lemma → список путей ``[leaf_slug, ..., root_slug]``
 
 Артефакт коммитится в репозиторий и используется pipeline'ом без runtime
-зависимости от ``ruwordnet`` (CLAUDE.md §13, §10 audit trail).
+зависимости от ``ruwordnet``.
 
 Запуск::
 
@@ -123,14 +123,14 @@ def collect_hierarchy(
 
     Возвращает (hierarchy, lemmas) где:
     - hierarchy[slug] = {parent, level, anchor_synset_id, label_ru, ru_title}
-    - lemmas[lemma] = list of paths [leaf_slug, ..., root_slug]
+    - lemmas[lemma] = список путей [leaf_slug, ..., root_slug]
     """
     hierarchy: dict[str, dict] = {}
     lemmas: dict[str, list[list[str]]] = defaultdict(list)
     used_slugs: set[str] = {anchor_slug}
     visited_synsets: set[str] = set()
 
-    # Queue: (synset, slug, depth, path_to_root)
+    # Очередь: (synset, slug, depth, path_to_root)
     queue: list[tuple[object, str, int, list[str]]] = [
         (anchor_synset, anchor_slug, 0, [])
     ]
@@ -187,14 +187,14 @@ def merge_into_global(
     local_lemmas: dict[str, list[list[str]]],
 ) -> None:
     """Слить локальное дерево anchor'а в глобальную структуру."""
-    # Hierarchy: разные anchor'ы имеют непересекающиеся slug-namespaces
+    # Иерархия: разные anchor-узлы имеют непересекающиеся slug-namespaces
     # (slug всегда начинается с anchor_slug), поэтому конфликтов быть не должно.
     for slug, meta in local_hierarchy.items():
         if slug in global_hierarchy:
             logger.warning("hierarchy slug collision: %s", slug)
         global_hierarchy[slug] = meta
 
-    # Lemmas: лемма может быть в нескольких anchor-деревьях — добавляем все пути.
+    # Леммы: лемма может быть в нескольких anchor-деревьях — добавляем все пути.
     for lemma, paths in local_lemmas.items():
         for path in paths:
             if path not in global_lemmas[lemma]:

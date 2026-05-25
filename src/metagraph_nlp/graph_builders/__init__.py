@@ -1,4 +1,4 @@
-"""Построение ориентированного семантического графа (CLAUDE.md §12.2)."""
+"""Построение ориентированного семантического графа."""
 
 from metagraph_nlp.graph_builders.from_clause import build_semantic_graph
 

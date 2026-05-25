@@ -1,4 +1,4 @@
-"""Содержательные labels для L2-метавершин (CLAUDE.md §9.4, §10).
+"""Содержательные labels для L2-метавершин.
 
 Утилита ``dominant_lemma_label`` выбирает самую частую значимую лемму
 во фрагменте L2 (та же фильтрация значимых узлов, что и в правиле
@@ -68,7 +68,7 @@ def dominant_lemma_label(
         winner = min(counter.items(), key=lambda kv: (-kv[1], kv[0]))
         return winner[0]
 
-    # Fallback: label первой L1-метавершины в отсортированном порядке.
+    # Запасной вариант: label первой L1-метавершины в отсортированном порядке.
     fallback_ids = sorted(l1_meta_node_ids)
     for l1_id in fallback_ids:
         l1 = l1_by_id.get(l1_id)

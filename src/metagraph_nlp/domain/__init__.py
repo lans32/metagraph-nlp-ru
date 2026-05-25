@@ -1,7 +1,7 @@
 """Доменная модель проекта.
 
 Явные типы первого класса для всех сущностей pipeline: текст, клаузы,
-семантический граф, метаграф, provenance. См. CLAUDE.md §7.2, §9, §12.5.
+семантический граф, метаграф, provenance.
 """
 
 from metagraph_nlp.domain.anaphora import AnaphoraResolution

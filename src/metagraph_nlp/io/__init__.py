@@ -1,4 +1,4 @@
-"""Ввод-вывод и сериализация артефактов (CLAUDE.md §11, §12.6)."""
+"""Ввод-вывод и сериализация артефактов."""
 
 from metagraph_nlp.io.artifacts import write_pipeline_artifacts
 

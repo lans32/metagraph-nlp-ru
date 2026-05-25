@@ -1,4 +1,4 @@
-"""Настройка Python logging для pipeline (CLAUDE.md §16)."""
+"""Настройка Python logging для pipeline."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Метрики стадий pipeline (CLAUDE.md §12.8)."""
+"""Метрики стадий pipeline."""
 
 from __future__ import annotations
 

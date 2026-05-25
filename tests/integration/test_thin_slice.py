@@ -50,7 +50,7 @@ def test_thin_slice_in_memory():
     assert para_l2[0].label.startswith("§0:")
     assert set(para_l2[0].fragment.meta_node_ids) == {mn.id for mn in l1_nodes}
     assert len(cluster_l2) >= 1
-    # Cluster содержит как минимум две клаузы с общей сущностью.
+    # Кластер содержит как минимум две клаузы с общей сущностью.
     assert all(len(mn.fragment.meta_node_ids) >= 2 for mn in cluster_l2)
 
     rule_names = {e.rule for e in result.audit.events}
@@ -184,7 +184,7 @@ def test_thin_slice_predicate_hierarchy_multi_level():
         for e in containment_edges:
             assert e.relation == "contains"
 
-    # Audit: v1 hierarchy была применена.
+    # Аудит: применена иерархия v1.
     pred_events = [
         ev for ev in result.audit.events
         if ev.rule == "predicate_class_cluster_v0"

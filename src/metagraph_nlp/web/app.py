@@ -159,12 +159,6 @@ def _render_phase1_config(config: Config) -> Config:
             help=TOOLTIPS_PHASE1["anaphora_animacy_match"],
         )
 
-    config.aggregation.np_collapse_enabled = st.toggle(
-        "Свёртка именных групп (NP collapse)",
-        value=config.aggregation.np_collapse_enabled,
-        help=TOOLTIPS_PHASE1["np_collapse"],
-    )
-
     import os
     cpu_count = os.cpu_count() or 1
     config.morphsyntax.workers = st.slider(

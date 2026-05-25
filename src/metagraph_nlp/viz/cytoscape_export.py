@@ -2,8 +2,8 @@
 
 Генерирует JSON-элементы и self-contained HTML с Cytoscape.js из CDN.
 Compound nodes обеспечивают визуальное вложение: L0-узлы вложены в L1,
-L1 — в L2, и т.д. (CLAUDE.md §4.4). Инспектор свойств показывает
-provenance каждого элемента (§7.4, §10).
+L1 — в L2, и т.д. Инспектор свойств показывает
+provenance каждого элемента.
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ def metagraph_to_cytoscape_elements(
     # Холархия: для каждой L1-метавершины, входящей более чем в один L2,
     # рисуем явные contains-рёбра от каждого «не-основного» L2 к этой L1.
     # Основной parent уже выражен через compound-nodes (data.parent), здесь
-    # отражаются дополнительные membership-связи (CLAUDE.md §4.4).
+    # отражаются дополнительные membership-связи.
     for mn in metagraph.meta_nodes:
         if mn.level < 2:
             continue

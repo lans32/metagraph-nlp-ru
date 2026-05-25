@@ -1,4 +1,4 @@
-"""Конфигурация pipeline: загрузка YAML + pydantic-схема (CLAUDE.md §13)."""
+"""Конфигурация pipeline: загрузка YAML + pydantic-схема."""
 
 from __future__ import annotations
 
@@ -150,30 +150,8 @@ class AggregationConfig(BaseModel):
         default=False,
         description=(
             "Создавать L2-метарёбра containment между parent ↔ child "
-            "predicate-кластерами (явная дендрограмма по §9.3). "
+            "predicate-кластерами (явная дендрограмма). "
             "Имеет смысл только для v1 словаря."
-        ),
-    )
-    np_collapse_enabled: bool = Field(
-        default=False,
-        description="Сворачивать именные группы (NP) в один узел графа перед агрегацией.",
-    )
-    np_collapse_deprels: list[str] = Field(
-        default_factory=lambda: [
-            "amod",
-            "det",
-            "nummod",
-            "appos",
-            "flat",
-            "flat:name",
-            "nmod:poss",
-        ],
-        description=(
-            "UD-deprel модификаторов, которые np_collapse_v1 включает в "
-            "свёртку. По умолчанию покрывает amod/det/nummod/appos/flat/"
-            "nmod:poss. nmod без `:poss` намеренно НЕ сворачивается — он "
-            "остаётся отдельным узлом + ребром (см. _expand_nmod). "
-            "Можно сузить (убрать nummod) или расширить (добавить acl)."
         ),
     )
     entity_centric_enabled: bool = Field(
@@ -290,10 +268,9 @@ class Config(BaseModel):
             "clauses": self.clauses.model_dump(),
             "graph": self.graph.model_dump(),
             "anaphora": self.anaphora.model_dump(),
-            "np_collapse_enabled": self.aggregation.np_collapse_enabled,
             "predicate_classes_path": self.aggregation.predicate_classes_path,
             # Byte-hash содержимого словаря инвалидирует Phase 1 кэш
-            # при смене файла без смены пути (§10 audit trail).
+            # при смене файла без смены пути (audit trail).
             "predicate_classes_sha256": _predicate_classes_file_sha256(
                 self.aggregation.predicate_classes_path
             ),

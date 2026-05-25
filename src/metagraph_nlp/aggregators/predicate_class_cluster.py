@@ -1,6 +1,6 @@
 """Агрегация уровня 2: кластеры клауз по классам предикатов.
 
-Правило ``predicate_class_cluster_v0`` (CLAUDE.md §5.5). Опирается на
+Правило ``predicate_class_cluster_v0``. Опирается на
 поле ``Edge.predicate_class``, заполненное в ``graph_builders.from_clause``
 по словарю ``configs/predicate_classes*.yaml``.
 
@@ -15,9 +15,9 @@
 5. При ``create_containment_edges=True`` — добавить L2-метарёбра
    ``containment`` (``relation="contains"``) между parent ↔ child
    predicate-кластерами, обе из которых стали L2-метавершинами.
-   Это делает дендрограмму (CLAUDE.md §4.4) явной по §9.3.
+   Это делает дендрограмму явной.
 
-Холархия (CLAUDE.md §4.4): одна L1-клауза с глаголом, чья лемма попадает
+Холархия: одна L1-клауза с глаголом, чья лемма попадает
 в несколько ветвей RuWordNet, оказывается в нескольких L2-метавершинах
 одновременно — на разных уровнях абстракции (leaf / mid / root).
 
@@ -25,7 +25,7 @@
 - L1-клаузы без предикатов из словаря не попадают ни в один кластер;
 - ``label`` совпадает с именем семантического класса для читаемости;
 - ``provenance.notes`` хранит class, level, parent, anchor_synset_id и
-  список конкретных лемм кластера (трассировка до RuWordNet, §10).
+  список конкретных лемм кластера (трассировка до RuWordNet).
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ def aggregate_predicate_class_clusters(
     created = list(created_by_class.values())
     metagraph.meta_nodes.extend(created)
 
-    # Containment edges: parent_class L2 → child_class L2 (если обе созданы).
+    # Метарёбра вложенности (containment): parent_class L2 → child_class L2 (если обе созданы).
     if create_containment_edges and hierarchy is not None and created_by_class:
         new_edges: list[MetaEdge] = []
         for child_cls, child_node in created_by_class.items():

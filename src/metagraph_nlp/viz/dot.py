@@ -79,7 +79,7 @@ def metagraph_to_dot(
 ) -> str:
     """DOT для метаграфа: метавершины + их члены + пунктирные contains-рёбра.
 
-    Двуслойное представление дендрограммы уровня 1 (CLAUDE.md §4.4).
+    Двуслойное представление дендрограммы уровня 1.
     """
     by_clause = _clause_text(clauses)
     node_index = graph.node_index()
@@ -142,7 +142,7 @@ def metagraph_to_dot(
                 f'[label="{_escape(e.relation)}", tooltip="{tooltip}"];'
             )
 
-    # Пунктирные contains-рёбра от метавершин к их членам (§9.4 no silent collapse).
+    # Пунктирные contains-рёбра от метавершин к их членам (no silent collapse).
     # L1: meta → L0 узлы (node_ids); L2+: meta → L1 meta (meta_node_ids).
     for mn in metagraph.meta_nodes:
         for nid in mn.fragment.node_ids:

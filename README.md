@@ -5,16 +5,13 @@
 
 ```
 raw text → normalize → sentences → parse (UD) → clauses → semantic graph
-  → [anaphora resolution] → [NP collapse]
+  → [anaphora resolution]
   → metagraph L1 (clause metanodes + shared_entity metaedges)
   → metagraph L2 (paragraphs + entity_clusters + predicate_class_clusters
                   + topic_overlap)
 ```
 
 Стадии в квадратных скобках — опциональные, управляются конфигурацией.
-
-Подробная спецификация архитектуры и инвариантов — в [CLAUDE.md](CLAUDE.md).
-Дневник разработки — в [docs/journal/](docs/journal/).
 
 ## Возможности
 
@@ -24,7 +21,6 @@ raw text → normalize → sentences → parse (UD) → clauses → semantic gra
 - **Многоуровневый метаграф (холархия)**: L0 (узлы/рёбра) → L1 (клаузы, shared_entity) → L2 (параграфы, entity-кластеры по общим сущностям, **entity-centric метавершины** — по одной на значимую сущность, predicate-class-кластеры по таксономии глаголов, topic_overlap). Одна L1-клауза может одновременно входить в несколько L2-метавершин.
 - **Содержательные labels у L2-метавершин**: самая частая значимая лемма во фрагменте (для paragraph и entity_cluster), сама лемма (для entity_centric), имя семантического класса (для predicate_class_cluster).
 - **Минимальная таксономия глаголов**: ручной YAML-словарь `configs/predicate_classes.yaml` (motion, communication, cognition, perception, possession, creation, change_of_state, causation), поле `Edge.predicate_class`, агрегатор `predicate_class_cluster_v0`.
-- **NP collapse**: свёртка именных групп (NOUN + amod/nmod/det) в один узел с составной леммой.
 - **Разрешение анафоры (v1)**: rule-based замена-в-узле для личных, притяжательных 3-го лица и возвратных местоимений (он/она/оно/они, его/её/их с Poss=Yes, себя/свой). PRON-узел остаётся в графе с обновлёнными `lemma`/`upos`/`label` от антецедента; исходные значения сохраняются в `original_lemma`/`original_upos`, добавляется `antecedent_node_id`. Кандидаты ранжируются упрощённым Lappin–Leass salience-скорингом (subj / obj / obl / propn / recency / thematic / repeat_mention). Hard constraints — Gender / Number / Animacy. Возвратные берут subject текущей клаузы.
 - **Параллельный парсинг (ProcessPool)**: распараллеливание `parse`-стадии по предложениям через `ProcessPoolExecutor` (`morphsyntax.workers`, `morphsyntax.parallel_threshold`). На больших текстах даёт 3-4x ускорение; на малых — sequential без накладных расходов на spawn.
 - **Три формата визуализации**: pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes, инспектором и **toggle-фильтрами** по уровням (L0/L1/L2) и типам рёбер (base/shared_entity/topic_overlap/contains). Параллельные `shared_entity` рёбра объединяются в одно с подписью «N общих лемм».
@@ -222,7 +218,7 @@ pytest -m 'slow or not slow'    # все тесты
 |--------|-----------|
 | `domain/` | Доменная модель: Document, Sentence, Clause, Node, Edge, MetaNode, MetaEdge, SemanticGraph, Metagraph |
 | `parsers/` | Нормализация, сегментация, клаузы, адаптеры morphsyntax (natasha, TreeTagger+MaltParser), маппер MSD→UD |
-| `graph_builders/` | Семантический граф из UD-ролей, NP collapse |
+| `graph_builders/` | Семантический граф из UD-ролей |
 | `aggregators/` | L1: clause metanodes, shared_entity metaedges; L2: paragraph metanodes, entity_cluster metanodes, predicate_class_cluster metanodes, topic_overlap metaedges |
 | `viz/` | pyvis HTML, GraphViz DOT, Cytoscape.js с compound nodes |
 | `io/` | Сериализация артефактов (JSON, JSONL, YAML) |
@@ -248,7 +244,6 @@ pytest -m 'slow or not slow'    # все тесты
 | `aggregation.predicate_class_cluster_min_size` | `2` | Минимальный размер predicate-класса |
 | `aggregation.predicate_classes_path` | `null` | Путь к YAML-словарю классов; `null` → встроенный `configs/predicate_classes.yaml` |
 | `aggregation.topic_overlap_enabled` | `true` | L2-метарёбра по пересечению фрагментов |
-| `aggregation.np_collapse_enabled` | `false` | Свёртка именных групп перед агрегацией |
 | `anaphora.enabled` | `false` | Разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле) |
 | `anaphora.search_window_sentences` | `2` | Окно поиска антецедента в предложениях |
 | `anaphora.require_animacy_match` | `true` | Требовать совпадения Animacy PRON и антецедента |
@@ -257,17 +252,3 @@ pytest -m 'slow or not slow'    # все тесты
 | `morphsyntax.parser` | `"natasha"` | UD-парсер: `natasha` или `maltparser` |
 | `morphsyntax.workers` | `1` | Число параллельных процессов для парсинга предложений (1 = последовательно) |
 | `morphsyntax.parallel_threshold` | `16` | Минимум предложений для активации параллельного парсинга |
-
-## Дневник разработки
-
-- [2026-04-15 — Bootstrap](docs/journal/2026-04-15-bootstrap.md)
-- [2026-04-15 — Визуализация](docs/journal/2026-04-15-viz.md)
-- [2026-04-16 — UD-разбор, клаузы, метарёбра](docs/journal/2026-04-16-ud-and-metaedges.md)
-- [2026-04-19 — L2-параграфная агрегация](docs/journal/2026-04-19-l2-paragraph-aggregation.md)
-- [2026-05-05 — Девять задач для защиты](docs/journal/2026-05-05-diploma-features.md)
-- [2026-05-06 — Разрешение анафоры (v0)](docs/journal/2026-05-06-anaphora-resolution-v0.md)
-- [2026-05-06 — Тематические кластеры и таксономия глаголов](docs/journal/2026-05-06-l2-entity-cluster-and-verb-taxonomy.md)
-- [2026-05-07 — Разрешение анафоры v1: замена-в-узле, salience-скоринг](docs/journal/2026-05-07-anaphora-resolution-v1.md)
-- [2026-05-14 — Двухфазный pipeline, пресеты, entity-centric, параллельный парсинг](docs/journal/2026-05-14-two-phase-pipeline-and-presets.md)
-- [2026-05-22 — MaltParser + TreeTagger как объяснимый rule/ML-backend morphsyntax](docs/journal/2026-05-22-treetagger-malt-integration.md)
-- [2026-05-22 — np_collapse_v1: свёртка NP через UD-subtree, порядок по token_id, расширенный список deprel](docs/journal/2026-05-22-np-collapse-v1.md)

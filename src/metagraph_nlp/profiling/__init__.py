@@ -1,4 +1,4 @@
-"""Таймеры, память, статистика (CLAUDE.md §12.8)."""
+"""Таймеры, память, статистика."""
 
 from metagraph_nlp.profiling.metrics import PipelineMetrics, StageMetrics, measure_stage
 

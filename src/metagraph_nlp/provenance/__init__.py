@@ -1,4 +1,4 @@
-"""Lineage, audit и explainability (CLAUDE.md §10, §12.7)."""
+"""Lineage, audit и explainability."""
 
 from metagraph_nlp.provenance.audit import AuditEvent, AuditLog
 

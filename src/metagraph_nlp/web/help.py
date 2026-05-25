@@ -68,15 +68,6 @@ TOOLTIPS_PHASE1: dict[str, str] = {
         "местоимения и кандидата. Снижает ложные срабатывания, когда «он»/«она» "
         "ошибочно связываются с неодушевлённой сущностью."
     ),
-    "np_collapse": (
-        "Свёртка именных групп (`np_collapse_v1`): NOUN/PROPN и его модификаторы "
-        "склеиваются в один узел графа с составной леммой. Набор UD-deprel, "
-        "которые включаются в свёртку, задаётся `aggregation.np_collapse_deprels` "
-        "(по умолчанию: `amod`, `det`, `nummod`, `appos`, `flat`, `flat:name`, "
-        "`nmod:poss`). Пример: «новая интересная книга» → один узел "
-        "`новый_интересный_книга`. `nmod` без `:poss` намеренно НЕ сворачивается — "
-        "остаётся отдельным узлом и ребром."
-    ),
     "workers": (
         "Число параллельных процессов для парсинга предложений (ProcessPoolExecutor). "
         "Активируется только когда предложений ≥ `parallel_threshold` (по умолчанию 16): "
@@ -199,7 +190,7 @@ TOOLTIPS_COMMON: dict[str, str] = {
     ),
     "run_button": (
         "Запускает Phase 1 (тяжёлая часть: парсинг → клаузы → граф → "
-        "анафора → NP collapse) и Phase 2 (агрегация). Phase 1 кэшируется по "
+        "анафора) и Phase 2 (агрегация). Phase 1 кэшируется по "
         "хэшу текста и настроек: смена пресета или тоглов агрегации справа "
         "перезапускает только Phase 2 — мгновенно."
     ),
@@ -326,8 +317,6 @@ _PIPELINE_HTML = _DIAGRAM_CSS + """
       <span class="mgnlp-stage">Семантический граф</span>
       <span class="mgnlp-arrow">&rarr;</span>
       <span class="mgnlp-stage mgnlp-stage-optional">Разрешение<br/>анафоры (опц.)</span>
-      <span class="mgnlp-arrow">&rarr;</span>
-      <span class="mgnlp-stage mgnlp-stage-optional">NP collapse<br/>(опц.)</span>
     </div>
   </div>
   <div class="mgnlp-arrow-v">&darr;</div>
@@ -345,8 +334,7 @@ _PIPELINE_HTML = _DIAGRAM_CSS + """
   </div>
   <div class="mgnlp-legend">
     Сплошные блоки — обязательные стадии; пунктирные — опциональные
-    (управляются конфигурацией <code>anaphora.enabled</code>,
-    <code>aggregation.np_collapse_enabled</code>).
+    (управляются конфигурацией <code>anaphora.enabled</code>).
   </div>
 </div>
 """
@@ -853,48 +841,6 @@ def _render_graph() -> None:
         "Рёбра: `читать —nsubj→ студент`, `читать —obj→ книга`."
     )
 
-    st.markdown("### NP collapse (свёртка именных групп)")
-    st.markdown(
-        """
-Опциональная стадия `np_collapse_v1` (`aggregation.np_collapse_enabled`,
-по умолчанию выключена). Объединяет узел существительного и его
-модификаторы в один узел с составной леммой:
-
-- набор UD-deprel модификаторов задаётся параметром
-  `aggregation.np_collapse_deprels`. По умолчанию покрываются:
-  `amod` (прилагательные), `det` (детерминаторы), `nummod`
-  (числительные), `appos` (приложение), `flat` / `flat:name`
-  (составные имена), `nmod:poss` (притяжательные определения);
-- составная лемма формируется как объединение лемм модификаторов и
-  леммы существительного в порядке встречи в тексте;
-- входящие рёбра модификаторов перенаправляются на новый узел;
-  исходные узлы-модификаторы удаляются;
-- `nmod` без `:poss` **намеренно** не сворачивается — несогласованное
-  определение остаётся отдельным узлом и ребром (см. блок про nmod
-  выше: пример «книга студента» сохраняет двухузловую структуру).
-        """
-    )
-    st.markdown("**Пример.** Фраза «новая интересная книга»")
-    st.code(
-        """\
-До свёртки:
-    новый —amod→ книга
-    интересный —amod→ книга
-
-После np_collapse_v1:
-    узел «новый_интересный_книга» (UPOS=NOUN, составная лемма)
-""",
-        language="text",
-    )
-    st.markdown(
-        "NP collapse делает граф компактнее и облегчает агрегацию по "
-        "сущностям, но размывает структуру внутри именной группы (теряется "
-        "привязка прилагательного как самостоятельного узла). Набор deprels "
-        "удобно расширять, если в корпусе есть свои частотные конструкции, "
-        "или сужать, если важно сохранять числительные/имена как отдельные "
-        "вершины."
-    )
-
 
 def _render_anaphora() -> None:
     st.markdown(
@@ -1039,16 +985,16 @@ for sent_i, sentence in enumerate(sentences):
             antecedent = find_clause_subject(token)  # subject текущей клаузы
             strategy = "clause_subject"
         else:
-            # Search в окне предложений назад.
+            # Поиск в окне предложений назад.
             candidates = collect_candidates(
                 sent_index=sent_i,
                 window=cfg.search_window_sentences,
             )
-            # Hard constraints.
+            # Жёсткие ограничения.
             candidates = [c for c in candidates if agreement_ok(token, c)]
             if not candidates:
                 continue
-            # Salience-скоринг.
+            # Скоринг salience.
             antecedent = max(candidates, key=lambda c: salience(c, token, history))
             strategy = "search"
 

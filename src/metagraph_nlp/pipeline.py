@@ -1,6 +1,6 @@
 """Оркестрация стадий pipeline: text → sentences → parse → clauses → graph → metagraph.
 
-Каждая стадия — явный вызов с явным входом и выходом (CLAUDE.md §9.6).
+Каждая стадия — явный вызов с явным входом и выходом.
 Морфо-синтаксический парсер инжектируется через аргумент `parser` — это
 позволяет подменять реализацию в тестах (fake) и в продакшене (natasha).
 
@@ -41,7 +41,6 @@ from metagraph_nlp.domain import (
     Sentence,
 )
 from metagraph_nlp.graph_builders import build_semantic_graph
-from metagraph_nlp.graph_builders.np_collapse import collapse_noun_phrases
 from metagraph_nlp.io import write_pipeline_artifacts
 from metagraph_nlp.parsers import (
     extract_clauses,
@@ -329,24 +328,6 @@ def run_phase1(
             len(anaphora_resolutions),
             len(graph.nodes),
         )
-
-    if cfg.aggregation.np_collapse_enabled:
-        with measure_stage("np_collapse", metrics) as sm:
-            graph = collapse_noun_phrases(
-                graph,
-                parsed_sentences,
-                clauses,
-                ids,
-                include_deprels=set(cfg.aggregation.np_collapse_deprels),
-            )
-            sm.output_count = len(graph.nodes) + len(graph.edges)
-        audit.record(
-            "np_collapse",
-            "np_collapse_v0",
-            inputs=[n.id for n in graph.nodes],
-            outputs=[n.id for n in graph.nodes],
-        )
-        logger.info("np_collapse: %d nodes, %d edges after collapse", len(graph.nodes), len(graph.edges))
 
     logger.info("phase1 complete: %.3fs", metrics.total_wall_seconds)
 

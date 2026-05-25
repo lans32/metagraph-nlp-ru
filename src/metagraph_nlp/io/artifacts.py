@@ -1,4 +1,4 @@
-"""Запись промежуточных артефактов в JSON/JSONL (CLAUDE.md §11.1, §11.2)."""
+"""Запись промежуточных артефактов в JSON/JSONL."""
 
 from __future__ import annotations
 

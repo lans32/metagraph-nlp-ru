@@ -48,6 +48,5 @@ aggregation:
   predicate_hierarchy_edges_enabled: false
   topic_overlap_enabled: true
   topic_overlap_min_overlap: 1
-  np_collapse_enabled: false
 
 log_level: INFO

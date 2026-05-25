@@ -99,7 +99,7 @@ def test_creates_one_l2_per_paragraph():
     assert len(created) == 3
     assert all(mn.level == 2 for mn in created)
     assert all(mn.type == "paragraph" for mn in created)
-    # Label вида "§<index>: <topic>". При пустом графе topic — label первой L1.
+    # Подпись вида "§<index>: <topic>". При пустом графе topic — label первой L1.
     for i, mn in enumerate(created):
         assert mn.label.startswith(f"§{i}:")
 

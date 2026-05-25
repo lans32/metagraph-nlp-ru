@@ -1,4 +1,4 @@
-"""Загрузка словаря семантических классов предикатов (CLAUDE.md §5.5).
+"""Загрузка словаря семантических классов предикатов.
 
 Поддерживаются две версии формата YAML:
 
@@ -91,7 +91,7 @@ def load_predicate_classes(
     inverted: dict[str, set[str]] = defaultdict(set)
 
     if version == 0:
-        # Legacy: classes: {class_name: [lemma, ...]}
+        # Версия 0 (плоская): classes: {class_name: [lemma, ...]}
         classes_section = data.get("classes") or {}
         for class_name, lemmas in classes_section.items():
             if not isinstance(lemmas, list):
@@ -100,7 +100,7 @@ def load_predicate_classes(
                 if isinstance(lemma, str) and lemma:
                     inverted[lemma].add(class_name)
     elif version == 1:
-        # Hierarchical: lemmas: {lemma: [[leaf, ..., root], ...]}
+        # Иерархическая (v1): lemmas: {lemma: [[leaf, ..., root], ...]}
         lemmas_section = data.get("lemmas") or {}
         for lemma, paths in lemmas_section.items():
             if not isinstance(lemma, str) or not lemma:

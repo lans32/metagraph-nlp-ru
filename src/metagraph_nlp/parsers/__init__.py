@@ -1,4 +1,4 @@
-"""Нормализация текста, сегментация, выделение клауз (CLAUDE.md §12.1)."""
+"""Нормализация текста, сегментация, выделение клауз."""
 
 from metagraph_nlp.parsers.anaphora import resolve_anaphora
 from metagraph_nlp.parsers.clauses import extract_clauses

@@ -51,7 +51,7 @@ def test_conll_input_contains_morpho_fields(fake_paths, monkeypatch):
     captured_conll: dict[str, str] = {}
 
     def fake_run(cmd, **kwargs):
-        # MaltParser читает input из -i <path>, пишет в -o <path>.
+        # MaltParser читает вход из -i <path>, пишет в -o <path>.
         # Имитируем: читаем input, формируем минимальный output.
         i_idx = cmd.index("-i") + 1
         o_idx = cmd.index("-o") + 1
