@@ -242,7 +242,7 @@ pytest -m 'slow or not slow'    # все тесты
 | `aggregation.entity_centric_propn_always` | `true` | PROPN-леммы (имена собственные) включаются при freq ≥ 1 |
 | `aggregation.predicate_class_cluster_enabled` | `true` | L2-метавершины — кластеры клауз по классам предикатов из словаря (`predicate_class_cluster_v0`) |
 | `aggregation.predicate_class_cluster_min_size` | `2` | Минимальный размер predicate-класса |
-| `aggregation.predicate_classes_path` | `null` | Путь к YAML-словарю классов; `null` → встроенный `configs/predicate_classes.yaml` |
+| `aggregation.predicate_classes_path` | `null` | Путь к YAML-словарю классов; `null` → встроенный `configs/predicate_classes_ruwordnet.yaml` (v1). Для legacy v0 указать `configs/predicate_classes.yaml` |
 | `aggregation.topic_overlap_enabled` | `true` | L2-метарёбра по пересечению фрагментов |
 | `anaphora.enabled` | `false` | Разрешение анафоры (`anaphora_resolution_v1`, замена-в-узле) |
 | `anaphora.search_window_sentences` | `2` | Окно поиска антецедента в предложениях |

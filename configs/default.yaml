@@ -40,7 +40,7 @@ aggregation:
   entity_cluster_min_size: 2
   predicate_class_cluster_enabled: true
   predicate_class_cluster_min_size: 2
-  predicate_classes_path: null  # null = legacy configs/predicate_classes.yaml (v0); для иерархии указать configs/predicate_classes_ruwordnet.yaml
+  predicate_classes_path: null  # null = встроенный configs/predicate_classes_ruwordnet.yaml (v1, иерархический); для legacy плоского словаря указать configs/predicate_classes.yaml
   predicate_class_cluster_levels:
     - leaf
     - mid

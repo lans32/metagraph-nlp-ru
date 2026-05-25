@@ -44,11 +44,6 @@ def _compute_cache_key(text: str, config: Config) -> str:
     return f"{text_hash}_{config.phase1_hash()}"
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_PREDICATE_LEXICON_DEFAULT = _REPO_ROOT / "configs" / "predicate_classes.yaml"
-_PREDICATE_LEXICON_RUWORDNET = _REPO_ROOT / "configs" / "predicate_classes_ruwordnet.yaml"
-
-
 def _render_phase1_config(config: Config) -> Config:
     """Настройки Phase 1: парсинг, клаузы, граф, анафора."""
 
@@ -73,41 +68,6 @@ def _render_phase1_config(config: Config) -> Config:
             "Пути к TreeTagger и MaltParser задаются в YAML-конфиге "
             "(`configs/malt_treetagger.yaml`). См. README."
         )
-
-    # --- Словарь predicate-классов (влияет на Phase 1: Edge.predicate_class) ---
-    lexicon_options = ["default", "ruwordnet"]
-    lexicon_labels = {
-        "default": "Базовый (v0, ~100 лемм, 8 плоских классов)",
-        "ruwordnet": "RuWordNet (v1, ~8000 лемм, иерархия leaf/mid/root)",
-    }
-    if not _PREDICATE_LEXICON_RUWORDNET.exists():
-        lexicon_options = ["default"]
-        st.caption(
-            "ℹ️ Иерархический словарь не найден. Соберите его командой: "
-            "`python scripts/build_predicate_lexicon.py --anchors configs/predicate_anchors.yaml "
-            "--output configs/predicate_classes_ruwordnet.yaml`"
-        )
-
-    # Восстановить выбор из текущего предиката (если путь совпадает с одним из вариантов)
-    current_path = config.aggregation.predicate_classes_path or ""
-    if current_path and Path(current_path).name == _PREDICATE_LEXICON_RUWORDNET.name:
-        current_lexicon = "ruwordnet"
-    else:
-        current_lexicon = "default"
-    if current_lexicon not in lexicon_options:
-        current_lexicon = lexicon_options[0]
-
-    selected_lexicon = st.selectbox(
-        "Словарь predicate-классов",
-        options=lexicon_options,
-        index=lexicon_options.index(current_lexicon),
-        format_func=lambda x: lexicon_labels.get(x, x),
-        help=TOOLTIPS_PHASE1["predicate_lexicon"],
-    )
-    if selected_lexicon == "ruwordnet":
-        config.aggregation.predicate_classes_path = str(_PREDICATE_LEXICON_RUWORDNET)
-    else:
-        config.aggregation.predicate_classes_path = None
 
     clause_options = ["ud_subtree_clauses_v0", "sentence_as_clause_v0"]
     clause_labels = {
@@ -285,45 +245,33 @@ def _render_phase2_config(config: Config) -> Config:
             )
 
     # --- Иерархия predicate-классов: показывается ВСЕГДА, если включён
-    # predicate_class_cluster и выбран RuWordNet (v1). Это отдельный
-    # блок вне `custom`, чтобы настраивать multi-level и containment
-    # можно было поверх любого пресета.
+    # predicate_class_cluster. Блок вне `custom`, чтобы настраивать
+    # multi-level и containment можно было поверх любого пресета.
     if config.aggregation.predicate_class_cluster_enabled:
-        is_ruwordnet = (
-            config.aggregation.predicate_classes_path
-            and Path(config.aggregation.predicate_classes_path).name
-            == _PREDICATE_LEXICON_RUWORDNET.name
-        )
-        if is_ruwordnet:
-            with st.expander("Иерархия predicate-классов (RuWordNet)", expanded=True):
-                level_labels = {
-                    "leaf": "leaf (узкие)",
-                    "mid": "mid (средние)",
-                    "root": "root (общие)",
-                }
-                selected_labels = st.multiselect(
-                    "Уровни иерархии",
-                    options=list(level_labels.values()),
-                    default=[
-                        level_labels[lvl]
-                        for lvl in config.aggregation.predicate_class_cluster_levels
-                        if lvl in level_labels
-                    ],
-                    help=TOOLTIPS_PHASE2["predicate_hierarchy_levels"],
-                )
-                label_to_lvl = {v: k for k, v in level_labels.items()}
-                config.aggregation.predicate_class_cluster_levels = [
-                    label_to_lvl[l] for l in selected_labels
-                ]
-                config.aggregation.predicate_hierarchy_edges_enabled = st.toggle(
-                    "Метарёбра иерархии (parent → child)",
-                    value=config.aggregation.predicate_hierarchy_edges_enabled,
-                    help=TOOLTIPS_PHASE2["predicate_hierarchy_edges"],
-                )
-        else:
-            st.caption(
-                "ℹ️ Multi-level и containment-метарёбра требуют словаря RuWordNet. "
-                "Переключите словарь в секции «Анализ текста» выше."
+        with st.expander("Иерархия predicate-классов (RuWordNet)", expanded=True):
+            level_labels = {
+                "leaf": "leaf (узкие)",
+                "mid": "mid (средние)",
+                "root": "root (общие)",
+            }
+            selected_labels = st.multiselect(
+                "Уровни иерархии",
+                options=list(level_labels.values()),
+                default=[
+                    level_labels[lvl]
+                    for lvl in config.aggregation.predicate_class_cluster_levels
+                    if lvl in level_labels
+                ],
+                help=TOOLTIPS_PHASE2["predicate_hierarchy_levels"],
+            )
+            label_to_lvl = {v: k for k, v in level_labels.items()}
+            config.aggregation.predicate_class_cluster_levels = [
+                label_to_lvl[l] for l in selected_labels
+            ]
+            config.aggregation.predicate_hierarchy_edges_enabled = st.toggle(
+                "Метарёбра иерархии (parent → child)",
+                value=config.aggregation.predicate_hierarchy_edges_enabled,
+                help=TOOLTIPS_PHASE2["predicate_hierarchy_edges"],
             )
 
     return config

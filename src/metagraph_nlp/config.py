@@ -133,9 +133,9 @@ class AggregationConfig(BaseModel):
         default=None,
         description=(
             "Путь к YAML-словарю predicate-классов. None → "
-            "встроенный configs/predicate_classes.yaml (v0). "
-            "Для иерархической агрегации указать "
-            "configs/predicate_classes_ruwordnet.yaml (v1)."
+            "встроенный configs/predicate_classes_ruwordnet.yaml (v1, "
+            "иерархический). Для legacy плоского словаря указать "
+            "configs/predicate_classes.yaml (v0)."
         ),
     )
     predicate_class_cluster_levels: list[str] = Field(
@@ -280,7 +280,7 @@ class Config(BaseModel):
 
 
 _DEFAULT_PREDICATE_LEXICON_PATH = (
-    Path(__file__).resolve().parents[2] / "configs" / "predicate_classes.yaml"
+    Path(__file__).resolve().parents[2] / "configs" / "predicate_classes_ruwordnet.yaml"
 )
 
 
@@ -289,8 +289,8 @@ def _predicate_classes_file_sha256(path: str | None) -> str | None:
 
     Используется в :meth:`Config.phase1_hash` чтобы инвалидировать кэш
     Phase 1 при смене содержимого файла без смены пути. Если путь None,
-    хешируется встроенный configs/predicate_classes.yaml. Если файл
-    отсутствует — возвращается None (hash просто пропустит это поле).
+    хешируется встроенный configs/predicate_classes_ruwordnet.yaml.
+    Если файл отсутствует — возвращается None (hash просто пропустит это поле).
     """
     target = Path(path) if path else _DEFAULT_PREDICATE_LEXICON_PATH
     if not target.exists():

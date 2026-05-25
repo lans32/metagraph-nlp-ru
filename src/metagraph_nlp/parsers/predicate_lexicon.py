@@ -45,7 +45,7 @@ import yaml
 from metagraph_nlp.domain import PredicateHierarchy
 
 _DEFAULT_LEXICON_PATH = (
-    Path(__file__).resolve().parents[3] / "configs" / "predicate_classes.yaml"
+    Path(__file__).resolve().parents[3] / "configs" / "predicate_classes_ruwordnet.yaml"
 )
 
 # Кэш загруженного YAML по path+mtime — избегаем двойного парсинга,
