@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from html import escape as html_escape
 from pathlib import Path
 
@@ -31,11 +32,207 @@ def _new_network() -> Network:
     return net
 
 
+# Тулбар с ползунком масштаба и кнопкой полного экрана для pyvis-HTML.
+# Инжектируется в верх <body>, чтобы пользователь видел контролы над сетью.
+# Логарифмическая шкала слайдера (1× ≈ 67%) согласована с cytoscape_export.
+_PYVIS_TOOLBAR = """
+<style>
+  #mg-toolbar {
+    padding: 6px 12px;
+    background: #f4f4f4;
+    border-bottom: 1px solid #ddd;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+  #mg-toolbar strong { color: #555; min-width: 80px; }
+  #mg-toolbar button {
+    padding: 2px 9px; border: 1px solid #c0c0c0; background: #fff;
+    border-radius: 3px; cursor: pointer; font-size: 13px; line-height: 1.4;
+  }
+  #mg-toolbar button:hover { background: #eaeaea; }
+  #mg-toolbar button:active { background: #d8d8d8; }
+  #mg-zoom-slider { width: 160px; vertical-align: middle; }
+  #mg-zoom-value {
+    display: inline-block; min-width: 44px; text-align: right;
+    color: #555; font-variant-numeric: tabular-nums;
+  }
+  body.mg-pseudo-fullscreen {
+    position: fixed; inset: 0; z-index: 9999;
+    width: 100vw; height: 100vh; background: #fff; margin: 0;
+    display: flex; flex-direction: column;
+  }
+  body.mg-pseudo-fullscreen #mynetwork {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+  body:fullscreen, body:-webkit-full-screen {
+    display: flex; flex-direction: column; background: #fff;
+  }
+  body:fullscreen #mynetwork, body:-webkit-full-screen #mynetwork {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+</style>
+<div id="mg-toolbar">
+  <strong>Масштаб:</strong>
+  <button type="button" id="mg-zoom-out" title="Уменьшить">−</button>
+  <input type="range" id="mg-zoom-slider" min="0" max="100" step="1" value="67">
+  <button type="button" id="mg-zoom-in" title="Увеличить">+</button>
+  <span id="mg-zoom-value">100%</span>
+  <button type="button" id="mg-fit-btn" title="Подогнать к экрану">⤢ Подогнать</button>
+  <button type="button" id="mg-reset-btn" title="Сбросить масштаб (100%)">1:1</button>
+  <button type="button" id="mg-fullscreen-btn" title="Полноэкранный режим (Esc — выход)">⛶ Полный экран</button>
+</div>
+<script>
+(function() {
+  var ZOOM_MIN = 0.1, ZOOM_MAX = 3;
+  var LOG_LO = Math.log(ZOOM_MIN), LOG_HI = Math.log(ZOOM_MAX);
+  var slider, zoomValue;
+
+  function sliderToZoom(v) {
+    return Math.exp(LOG_LO + (LOG_HI - LOG_LO) * v / 100);
+  }
+  function zoomToSliderPos(z) {
+    var c = Math.min(Math.max(z, ZOOM_MIN), ZOOM_MAX);
+    return (Math.log(c) - LOG_LO) / (LOG_HI - LOG_LO) * 100;
+  }
+  function getNet() {
+    return (typeof network !== "undefined" && network) ? network : null;
+  }
+  function syncFromNet() {
+    var net = getNet();
+    if (!net || !slider || !zoomValue) return;
+    var z = net.getScale();
+    slider.value = zoomToSliderPos(z);
+    zoomValue.textContent = Math.round(z * 100) + "%";
+  }
+  function applyZoom(z) {
+    var net = getNet();
+    if (!net) return;
+    var clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    net.moveTo({ scale: clamped });
+  }
+
+  function init() {
+    slider = document.getElementById("mg-zoom-slider");
+    zoomValue = document.getElementById("mg-zoom-value");
+    if (!slider) return;
+
+    slider.addEventListener("input", function() {
+      applyZoom(sliderToZoom(parseFloat(this.value)));
+      // moveTo не всегда триггерит событие zoom — обновим UI вручную:
+      setTimeout(syncFromNet, 30);
+    });
+    document.getElementById("mg-zoom-in").addEventListener("click", function() {
+      var net = getNet(); if (!net) return;
+      applyZoom(net.getScale() * 1.25);
+      setTimeout(syncFromNet, 30);
+    });
+    document.getElementById("mg-zoom-out").addEventListener("click", function() {
+      var net = getNet(); if (!net) return;
+      applyZoom(net.getScale() / 1.25);
+      setTimeout(syncFromNet, 30);
+    });
+    document.getElementById("mg-fit-btn").addEventListener("click", function() {
+      var net = getNet(); if (!net) return;
+      net.fit();
+      setTimeout(syncFromNet, 50);
+    });
+    document.getElementById("mg-reset-btn").addEventListener("click", function() {
+      var net = getNet(); if (!net) return;
+      net.moveTo({ scale: 1.0 });
+      setTimeout(syncFromNet, 30);
+    });
+
+    function togglePseudo() {
+      document.body.classList.toggle("mg-pseudo-fullscreen");
+      setTimeout(function() {
+        var net = getNet();
+        if (net) { net.redraw(); net.fit(); syncFromNet(); }
+      }, 80);
+    }
+    document.getElementById("mg-fullscreen-btn").addEventListener("click", function() {
+      var doc = document;
+      var fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+      if (fsEl) {
+        (doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen).call(doc);
+        return;
+      }
+      var el = doc.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (req) {
+        try {
+          var p = req.call(el);
+          if (p && p.catch) p.catch(togglePseudo);
+        } catch (e) { togglePseudo(); }
+      } else {
+        togglePseudo();
+      }
+    });
+    ["fullscreenchange", "webkitfullscreenchange", "msfullscreenchange"].forEach(function(ev) {
+      document.addEventListener(ev, function() {
+        setTimeout(function() {
+          var net = getNet();
+          if (net) { net.redraw(); net.fit(); syncFromNet(); }
+        }, 80);
+      });
+    });
+
+    // Сеть появляется после drawGraph(); опрашиваем, пока она не появится,
+    // затем подписываемся на изменения масштаба пользователем (колесо мыши).
+    var attempts = 0;
+    (function hook() {
+      var net = getNet();
+      if (!net) {
+        if (attempts++ < 50) setTimeout(hook, 100);
+        return;
+      }
+      try {
+        net.setOptions({ interaction: { zoomMin: ZOOM_MIN, zoomMax: ZOOM_MAX } });
+      } catch (e) { /* старый vis.js — пропускаем */ }
+      net.on("zoom", syncFromNet);
+      net.on("afterDrawing", function() {
+        if (Math.abs(parseFloat(slider.value) - zoomToSliderPos(net.getScale())) > 0.5) {
+          syncFromNet();
+        }
+      });
+      syncFromNet();
+    })();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+"""
+
+_BODY_OPEN_RE = re.compile(r"(<body[^>]*>)", re.IGNORECASE)
+
+
+def _inject_toolbar(html: str) -> str:
+    """Вставить тулбар в верх <body>; если разметка нестандартная — в начало документа."""
+    if _BODY_OPEN_RE.search(html):
+        return _BODY_OPEN_RE.sub(
+            lambda m: m.group(0) + "\n" + _PYVIS_TOOLBAR, html, count=1
+        )
+    return _PYVIS_TOOLBAR + html
+
+
 def _write(net: Network, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # pyvis.Network.write_html на Windows открывает файл без encoding="utf-8"
     # и падает на кириллице. Берём HTML напрямую и пишем сами.
     html = net.generate_html(notebook=False)
+    html = _inject_toolbar(html)
     out_path.write_text(html, encoding="utf-8")
 
 

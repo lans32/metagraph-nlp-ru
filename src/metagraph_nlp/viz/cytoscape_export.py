@@ -197,11 +197,27 @@ _HTML_TEMPLATE = """\
   #sidebar td { padding: 3px 4px; border-bottom: 1px solid #eee; vertical-align: top; }
   #sidebar td:first-child { font-weight: 600; white-space: nowrap; color: #555; }
   #controls { padding: 8px 12px; background: #f4f4f4; border-bottom: 1px solid #ddd; font-size: 13px; }
-  #controls label { margin-right: 12px; cursor: pointer; user-select: none; }
-  #controls .row { margin-bottom: 4px; }
+  #controls label { cursor: pointer; user-select: none; }
+  #controls .row { margin-bottom: 4px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
   #controls .row:last-child { margin-bottom: 0; }
   #controls strong { display: inline-block; min-width: 80px; }
-  #main { display: flex; flex-direction: column; flex: 1; }
+  #controls .tb-btn {
+    padding: 2px 9px; border: 1px solid #c0c0c0; background: #fff;
+    border-radius: 3px; cursor: pointer; font-size: 13px; line-height: 1.4;
+  }
+  #controls .tb-btn:hover { background: #eaeaea; }
+  #controls .tb-btn:active { background: #d8d8d8; }
+  #zoom-slider { width: 160px; vertical-align: middle; }
+  #zoom-value {
+    display: inline-block; min-width: 44px; text-align: right;
+    color: #555; font-variant-numeric: tabular-nums;
+  }
+  #main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  body.pseudo-fullscreen {
+    position: fixed; inset: 0; z-index: 9999;
+    width: 100vw; height: 100vh; background: #fff;
+  }
+  body:fullscreen, body:-webkit-full-screen { background: #fff; }
 </style>
 </head>
 <body>
@@ -220,6 +236,16 @@ _HTML_TEMPLATE = """\
       <label><input type="checkbox" class="etype-toggle" data-etype="topic_overlap" __E_TOPIC_OVERLAP_CHECKED__> topic_overlap</label>
       <label><input type="checkbox" class="etype-toggle" data-etype="contains" __E_CONTAINS_CHECKED__> contains</label>
     </div>
+    <div class="row">
+      <strong>Масштаб:</strong>
+      <button type="button" class="tb-btn" id="zoom-out" title="Уменьшить">−</button>
+      <input type="range" id="zoom-slider" min="0" max="100" step="1" value="67">
+      <button type="button" class="tb-btn" id="zoom-in" title="Увеличить">+</button>
+      <span id="zoom-value">100%</span>
+      <button type="button" class="tb-btn" id="fit-btn" title="Подогнать к экрану">⤢ Подогнать</button>
+      <button type="button" class="tb-btn" id="reset-btn" title="Сбросить масштаб (100%)">1:1</button>
+      <button type="button" class="tb-btn" id="fullscreen-btn" title="Полноэкранный режим (Esc — выход)">⛶ Полный экран</button>
+    </div>
   </div>
   <div id="cy"></div>
 </div>
@@ -234,6 +260,8 @@ var elements = __ELEMENTS_JSON__;
 var cy = cytoscape({
   container: document.getElementById("cy"),
   elements: elements,
+  minZoom: 0.1,
+  maxZoom: 3,
   style: [
     {
       selector: "node.node",
@@ -416,6 +444,83 @@ document.querySelectorAll(".etype-toggle").forEach(function(cb) {
     }
   });
 });
+
+// Управление масштабом (логарифмический ползунок) и полным экраном.
+// Логарифмическая шкала: 1× попадает в ~67% слайдера — визуально центрирует
+// «нейтральный» масштаб, что удобнее линейного отображения для диапазона 0.1–3.
+(function() {
+  var ZOOM_MIN = 0.1, ZOOM_MAX = 3;
+  var LOG_LO = Math.log(ZOOM_MIN), LOG_HI = Math.log(ZOOM_MAX);
+  var slider = document.getElementById("zoom-slider");
+  var zoomValue = document.getElementById("zoom-value");
+
+  function sliderToZoom(v) {
+    return Math.exp(LOG_LO + (LOG_HI - LOG_LO) * v / 100);
+  }
+  function zoomToSliderPos(z) {
+    var clamped = Math.min(Math.max(z, ZOOM_MIN), ZOOM_MAX);
+    return (Math.log(clamped) - LOG_LO) / (LOG_HI - LOG_LO) * 100;
+  }
+  function syncSliderFromCy() {
+    var z = cy.zoom();
+    slider.value = zoomToSliderPos(z);
+    zoomValue.textContent = Math.round(z * 100) + "%";
+  }
+  function applyZoom(z) {
+    var w = cy.width(), h = cy.height();
+    cy.zoom({ level: z, renderedPosition: { x: w / 2, y: h / 2 } });
+  }
+
+  slider.addEventListener("input", function() {
+    applyZoom(sliderToZoom(parseFloat(this.value)));
+  });
+  document.getElementById("zoom-in").addEventListener("click", function() {
+    applyZoom(Math.min(ZOOM_MAX, cy.zoom() * 1.25));
+  });
+  document.getElementById("zoom-out").addEventListener("click", function() {
+    applyZoom(Math.max(ZOOM_MIN, cy.zoom() / 1.25));
+  });
+  document.getElementById("fit-btn").addEventListener("click", function() {
+    cy.fit(undefined, 30);
+  });
+  document.getElementById("reset-btn").addEventListener("click", function() {
+    cy.zoom(1); cy.center();
+  });
+
+  cy.on("zoom", syncSliderFromCy);
+  syncSliderFromCy();
+
+  // Полный экран: пытаемся Fullscreen API; если запрещено (sandbox/iframe
+  // без allowfullscreen) — переходим в CSS-«псевдополный» режим, который
+  // растягивает body на весь viewport (внутри iframe это всё, что возможно).
+  function togglePseudo() {
+    document.body.classList.toggle("pseudo-fullscreen");
+    setTimeout(function() { cy.resize(); }, 60);
+  }
+  document.getElementById("fullscreen-btn").addEventListener("click", function() {
+    var doc = document;
+    var fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+    if (fsEl) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen).call(doc);
+      return;
+    }
+    var el = doc.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) {
+      try {
+        var p = req.call(el);
+        if (p && p.catch) p.catch(togglePseudo);
+      } catch (e) { togglePseudo(); }
+    } else {
+      togglePseudo();
+    }
+  });
+  ["fullscreenchange", "webkitfullscreenchange", "msfullscreenchange"].forEach(function(ev) {
+    document.addEventListener(ev, function() {
+      setTimeout(function() { cy.resize(); }, 60);
+    });
+  });
+})();
 </script>
 </body>
 </html>

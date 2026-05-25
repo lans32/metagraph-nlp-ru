@@ -634,6 +634,7 @@ OCR не считается частью семантического анали
 - интерактивный HTML через pyvis (`html_pyvis.py`);
 - статический GraphViz DOT (`dot.py`);
 - Cytoscape.js HTML с compound nodes, инспектором, toggle-фильтрами по уровням (L0/L1/L2) и типам рёбер (base/shared_entity/topic_overlap/contains), объединением параллельных shared_entity рёбер (`cytoscape_export.py`). Параметры `hidden_levels` / `hidden_etypes` позволяют рендерить только верхние уровни для больших графов.
+- общий тулбар управления видом в pyvis- и Cytoscape-HTML: логарифмический ползунок масштаба (0.1×–3×, 1× попадает в ~67% дорожки), кнопки −/+ (шаг 1.25×), «Подогнать» (`cy.fit()` / `network.fit()`), «1:1» (сброс на 100%) и «Полный экран». Кнопка полного экрана сначала пробует Fullscreen API (`requestFullscreen`); если контекст iframe запрещает, переключается в CSS-«псевдополный» режим (`position: fixed; inset: 0`). В pyvis тулбар инжектируется в `<body>` постобработкой (`_inject_toolbar`), чтобы не править внутренний шаблон pyvis.
 
 ### 12.10. `web/`
 
