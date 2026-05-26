@@ -1,0 +1,762 @@
+{
+  "anchors_file_sha256": "d9399b6a457d1e14",
+  "built_at": "2026-05-26T03:37:22Z",
+  "priority_order": [
+    "perception",
+    "cognition",
+    "volition",
+    "communication",
+    "possession",
+    "motion",
+    "physical_action",
+    "creation",
+    "change_of_state",
+    "existence",
+    "emotion",
+    "causation"
+  ],
+  "pruned_synset_count": 116,
+  "by_anchor": [
+    {
+      "anchor": "cognition",
+      "pruned": [
+        {
+          "synset_id": "114267-V",
+          "title": "ЧТЕНИЕ ТЕКСТА",
+          "depth": 3,
+          "parent_slug": "cognition_ponyat_vosprinyat"
+        },
+        {
+          "synset_id": "130334-V",
+          "title": "ВЧИТАТЬСЯ",
+          "depth": 3,
+          "parent_slug": "cognition_ponyat_vniknut"
+        }
+      ]
+    },
+    {
+      "anchor": "communication",
+      "pruned": [
+        {
+          "synset_id": "112024-V",
+          "title": "ОПРАВДАТЬ, НАЙТИ ОПРАВДАНИЕ",
+          "depth": 2,
+          "parent_slug": "communication_obyasnit_razyasnit"
+        },
+        {
+          "synset_id": "130890-V",
+          "title": "ДОКАЗАТЬ, ВЫВЕСТИ УТВЕРЖДЕНИЕ",
+          "depth": 2,
+          "parent_slug": "communication_obosnovat"
+        },
+        {
+          "synset_id": "149825-V",
+          "title": "ЧТЕНИЕ ВСЛУХ",
+          "depth": 2,
+          "parent_slug": "communication_proiznesti_vygovorit"
+        },
+        {
+          "synset_id": "139154-V",
+          "title": "ПРИЗНАТЬ ЗАКОННЫМ, ДЕЙСТВИТЕЛЬНЫМ",
+          "depth": 3,
+          "parent_slug": "communication_vyskazat_mnenie_soglasitsya_vyrazit"
+        },
+        {
+          "synset_id": "138596-V",
+          "title": "ОЦЕНИТЬ, ПРИЗНАТЬ ЦЕННОСТЬ",
+          "depth": 3,
+          "parent_slug": "communication_vyskazat_mnenie_ocenit_dat"
+        },
+        {
+          "synset_id": "145776-V",
+          "title": "ОБЪЯВИТЬ (ОФИЦИАЛЬНО ПРИЗНАТЬ)",
+          "depth": 3,
+          "parent_slug": "communication_soobschit_uvedomit_obyavit_oglasit"
+        },
+        {
+          "synset_id": "124962-V",
+          "title": "АККРЕДИТАЦИЯ (ПОДТВЕРЖДЕНИЕ ПОЛНОМОЧИЙ)",
+          "depth": 3,
+          "parent_slug": "communication_soobschit_uvedomit_svidetelstvovat_sluzhit"
+        },
+        {
+          "synset_id": "135134-V",
+          "title": "СОИЗВОЛИТЬ, СОБЛАГОВОЛИТЬ",
+          "depth": 3,
+          "parent_slug": "communication_otvetit_dat_soglasitsya_dat"
+        }
+      ]
+    },
+    {
+      "anchor": "motion",
+      "pruned": [
+        {
+          "synset_id": "128988-V",
+          "title": "ВОИНСКОЕ ПРИВЕТСТВИЕ",
+          "depth": 1,
+          "parent_slug": "motion"
+        },
+        {
+          "synset_id": "128988-V",
+          "title": "ВОИНСКОЕ ПРИВЕТСТВИЕ",
+          "depth": 2,
+          "parent_slug": "motion_shevelitsya_izmenyat"
+        }
+      ]
+    },
+    {
+      "anchor": "physical_action",
+      "pruned": [
+        {
+          "synset_id": "123377-V",
+          "title": "ВСПЛЕСНУТЬ РУКАМИ",
+          "depth": 3,
+          "parent_slug": "physical_action_hlopat_hlopat_ladoshi"
+        },
+        {
+          "synset_id": "115043-V",
+          "title": "АПЛОДИСМЕНТЫ",
+          "depth": 3,
+          "parent_slug": "physical_action_hlopat_hlopat_ladoshi"
+        }
+      ]
+    },
+    {
+      "anchor": "creation",
+      "pruned": [
+        {
+          "synset_id": "107606-V",
+          "title": "ЦИТИРОВАТЬ",
+          "depth": 2,
+          "parent_slug": "creation_vosproizvesti"
+        },
+        {
+          "synset_id": "124530-V",
+          "title": "ОПРОС, ОПРАШИВАНИЕ",
+          "depth": 3,
+          "parent_slug": "creation_soedinit_odno_sobrat_odnom"
+        },
+        {
+          "synset_id": "107402-V",
+          "title": "СТУЧАТЬ, ПРОИЗВОДИТЬ СТУК",
+          "depth": 3,
+          "parent_slug": "creation_izdavat_ispuskat_izdat_zvuk"
+        },
+        {
+          "synset_id": "117347-V",
+          "title": "ФАЛЬСИФИЦИРОВАТЬ",
+          "depth": 3,
+          "parent_slug": "creation_izgotovit_vyrabotat_poddelat"
+        },
+        {
+          "synset_id": "124692-V",
+          "title": "ВОЛЬТИЖИРОВКА",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "151857-V",
+          "title": "ХОЖДЕНИЕ ПО КАНАТУ",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "154387-V",
+          "title": "ЖИВОЕ ИСПОЛНЕНИЕ",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "110444-V",
+          "title": "ЧИТАТЬ (ИСПОЛНЯТЬ)",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "110453-V",
+          "title": "ПЕТЬ (ИСПОЛНЯТЬ)",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "133775-V",
+          "title": "ВТОРИТЬ (ИСПОЛНЯТЬ ПАРТИЮ ВТОРЫ)",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_ispolnit"
+        },
+        {
+          "synset_id": "9938-V",
+          "title": "ПОВТОРНОЕ ГОЛОСОВАНИЕ",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_povtorit_sdelat"
+        },
+        {
+          "synset_id": "153392-V",
+          "title": "ПОВТОРИТЬ СКАЗАННОЕ",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_povtorit_sdelat"
+        },
+        {
+          "synset_id": "116700-V",
+          "title": "ПЕРЕЧИТАТЬ ЗАНОВО",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_povtorit_sdelat"
+        },
+        {
+          "synset_id": "127501-V",
+          "title": "ПЕРЕОЦЕНИТЬ, ОЦЕНИТЬ ЗАНОВО",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_povtorit_sdelat"
+        },
+        {
+          "synset_id": "133688-V",
+          "title": "ПЕРЕУЧИТЬ (ОБУЧИТЬ ЗАНОВО)",
+          "depth": 3,
+          "parent_slug": "creation_vosproizvesti_povtorit_sdelat"
+        },
+        {
+          "synset_id": "125037-V",
+          "title": "АННОТИРОВАТЬ, СОСТАВЛЯТЬ АННОТАЦИЮ",
+          "depth": 3,
+          "parent_slug": "creation_sochinit_proizvedenie_pisat_sochinyat"
+        },
+        {
+          "synset_id": "116448-V",
+          "title": "ДОКУМЕНТИРОВАТЬ",
+          "depth": 3,
+          "parent_slug": "creation_sochinit_proizvedenie_pisat_sochinyat"
+        },
+        {
+          "synset_id": "128266-V",
+          "title": "ПРЕДПОСЛАТЬ (СКАЗАТЬ, НАПИСАТЬ В КАЧЕСТВЕ ВВЕДЕНИЯ)",
+          "depth": 3,
+          "parent_slug": "creation_sochinit_proizvedenie_pisat_sochinyat"
+        },
+        {
+          "synset_id": "121723-V",
+          "title": "РЕФЕРИРОВАТЬ",
+          "depth": 3,
+          "parent_slug": "creation_sochinit_proizvedenie_pisat_sochinyat"
+        },
+        {
+          "synset_id": "134219-V",
+          "title": "ТАРАНИТЬ (НАНОСИТЬ УДАР)",
+          "depth": 3,
+          "parent_slug": "creation_prodelat_otverstie_probivanie_otverstiya"
+        }
+      ]
+    },
+    {
+      "anchor": "change_of_state",
+      "pruned": [
+        {
+          "synset_id": "119084-V",
+          "title": "ИСКРИВИТЬСЯ, ПЕРЕКОСИТЬСЯ",
+          "depth": 2,
+          "parent_slug": "change_of_state_deformaciya"
+        },
+        {
+          "synset_id": "126847-V",
+          "title": "НОКАУТ",
+          "depth": 2,
+          "parent_slug": "change_of_state_reakciya_organizma"
+        },
+        {
+          "synset_id": "130342-V",
+          "title": "ВЫВАЛЯТЬСЯ В ГРЯЗИ",
+          "depth": 2,
+          "parent_slug": "change_of_state_pachkatsya_stanovitsya"
+        },
+        {
+          "synset_id": "338-V",
+          "title": "КОЛЛЕКТИВИЗАЦИЯ СЕЛЬСКОГО ХОЗЯЙСТВА",
+          "depth": 2,
+          "parent_slug": "change_of_state_reforma"
+        },
+        {
+          "synset_id": "123832-V",
+          "title": "РЕОРГАНИЗАЦИЯ, ПЕРЕУСТРОЙСТВО",
+          "depth": 2,
+          "parent_slug": "change_of_state_reforma"
+        },
+        {
+          "synset_id": "120105-V",
+          "title": "ОРГАНИЗОВАТЬ, СКОЛОТИТЬ",
+          "depth": 3,
+          "parent_slug": "change_of_state_priobresti_svoistvo_splotit_konsolidirovat"
+        },
+        {
+          "synset_id": "121319-V",
+          "title": "ВЖИТЬСЯ В ОБРАЗ",
+          "depth": 3,
+          "parent_slug": "change_of_state_prisposobitsya_osvoitsya_privyknut"
+        },
+        {
+          "synset_id": "151342-V",
+          "title": "ПЕЧЬСЯ, ЖАРИТЬСЯ",
+          "depth": 3,
+          "parent_slug": "change_of_state_nagretsya_peregretsya"
+        },
+        {
+          "synset_id": "145813-V",
+          "title": "СВАЛИВАНИЕ В ШТОПОР",
+          "depth": 3,
+          "parent_slug": "change_of_state_izmenenie_sostoyaniya_voiti"
+        },
+        {
+          "synset_id": "134113-V",
+          "title": "ПРИПУСТИТЬ БЕГОМ",
+          "depth": 3,
+          "parent_slug": "change_of_state_uvelichitsya_uskoritsya_nabrat"
+        }
+      ]
+    },
+    {
+      "anchor": "existence",
+      "pruned": [
+        {
+          "synset_id": "120940-V",
+          "title": "ЖЕНИТЬБА",
+          "depth": 3,
+          "parent_slug": "existence_zhit_zaklyuchenie_braka"
+        },
+        {
+          "synset_id": "116329-V",
+          "title": "ДОСТИЧЬ ВОЗРАСТА",
+          "depth": 3,
+          "parent_slug": "existence_zhit_prozhit_probyt"
+        }
+      ]
+    },
+    {
+      "anchor": "emotion",
+      "pruned": [
+        {
+          "synset_id": "106915-V",
+          "title": "ОЩУЩАТЬ, ВОСПРИНИМАТЬ",
+          "depth": 1,
+          "parent_slug": "emotion"
+        },
+        {
+          "synset_id": "119928-V",
+          "title": "ХОТЕТЬ, ИМЕТЬ ЖЕЛАНИЕ",
+          "depth": 1,
+          "parent_slug": "emotion"
+        },
+        {
+          "synset_id": "118798-V",
+          "title": "ВОСТОРГАТЬСЯ, ВОСХИЩАТЬСЯ",
+          "depth": 1,
+          "parent_slug": "emotion"
+        },
+        {
+          "synset_id": "117030-V",
+          "title": "ПРЕДЧУВСТВОВАТЬ",
+          "depth": 1,
+          "parent_slug": "emotion"
+        },
+        {
+          "synset_id": "135144-V",
+          "title": "ВЫМЕСТИТЬ, СОРВАТЬСЯ",
+          "depth": 2,
+          "parent_slug": "emotion_zlitsya"
+        },
+        {
+          "synset_id": "115679-V",
+          "title": "ПРИТЕРПЕТЬСЯ",
+          "depth": 2,
+          "parent_slug": "emotion_terpet"
+        },
+        {
+          "synset_id": "120382-V",
+          "title": "ВЫДОХНУТЬСЯ (УТРАТИТЬ СИЛУ, ЭНЕРГИЮ, СПОСОБНОСТ)",
+          "depth": 2,
+          "parent_slug": "emotion_utomitsya_ustat"
+        },
+        {
+          "synset_id": "134435-V",
+          "title": "РАСКИСНУТЬ (СТАТЬ ВЯЛЫМ)",
+          "depth": 2,
+          "parent_slug": "emotion_utomitsya_ustat"
+        },
+        {
+          "synset_id": "128443-V",
+          "title": "ПРОЧУВСТВОВАТЬ СМЫСЛ",
+          "depth": 2,
+          "parent_slug": "emotion_chuvstvovat"
+        },
+        {
+          "synset_id": "120603-V",
+          "title": "ВЫПУТАТЬСЯ ИЗ ПРОБЛЕМ",
+          "depth": 2,
+          "parent_slug": "emotion_perenesti_perezhit"
+        },
+        {
+          "synset_id": "119577-V",
+          "title": "ТРЕПЕТАТЬ ОТ ВОЛНЕНИЯ",
+          "depth": 2,
+          "parent_slug": "emotion_volnovatsya_ispytyvat"
+        },
+        {
+          "synset_id": "132911-V",
+          "title": "НАЧИТАТЬСЯ (ПОЧИТАТЬ ВДОВОЛЬ)",
+          "depth": 2,
+          "parent_slug": "emotion_udovletvoritsya"
+        },
+        {
+          "synset_id": "120187-V",
+          "title": "ВЛЮБИТЬСЯ",
+          "depth": 2,
+          "parent_slug": "emotion_goret_chuvstvom"
+        },
+        {
+          "synset_id": "120959-V",
+          "title": "ЗАГОРЕТЬСЯ, СИЛЬНО ЗАХОТЕТЬ",
+          "depth": 2,
+          "parent_slug": "emotion_goret_chuvstvom"
+        },
+        {
+          "synset_id": "120187-V",
+          "title": "ВЛЮБИТЬСЯ",
+          "depth": 2,
+          "parent_slug": "emotion_lyubit_ispytyvat"
+        },
+        {
+          "synset_id": "141429-V",
+          "title": "РАСТАЯТЬ (РАСТРОГАТЬСЯ)",
+          "depth": 2,
+          "parent_slug": "emotion_rastrogatsya_raschuvstvovatsya"
+        },
+        {
+          "synset_id": "128301-V",
+          "title": "ПРИКИПЕТЬ (ПРИВЯЗАТЬСЯ, ПРИВЫКНУТЬ)",
+          "depth": 3,
+          "parent_slug": "emotion_chuvstvovat_privyazatsya_pochuvstvovat"
+        },
+        {
+          "synset_id": "128605-V",
+          "title": "ВЗБОДРИТЬСЯ, ПРИЙТИ В БОДРОЕ НАСТРОЕНИЕ",
+          "depth": 3,
+          "parent_slug": "emotion_chuvstvovat_voodushevlenie_podem"
+        },
+        {
+          "synset_id": "130368-V",
+          "title": "ВЫЖИТЬ, ОСТАТЬСЯ ЖИВЫМ",
+          "depth": 3,
+          "parent_slug": "emotion_perenesti_perezhit_vyderzhat_stoiko"
+        },
+        {
+          "synset_id": "128654-V",
+          "title": "РАЗМЕЧТАТЬСЯ, УВЛЕЧЬСЯ МЕЧТАМИ",
+          "depth": 3,
+          "parent_slug": "emotion_zainteresovatsya_uvlechsya"
+        },
+        {
+          "synset_id": "117558-V",
+          "title": "ЗАГОВОРИТЬСЯ",
+          "depth": 3,
+          "parent_slug": "emotion_zainteresovatsya_uvlechsya"
+        },
+        {
+          "synset_id": "128776-V",
+          "title": "РАСПЕТЬСЯ (УВЛЕЧЬСЯ)",
+          "depth": 3,
+          "parent_slug": "emotion_zainteresovatsya_uvlechsya"
+        },
+        {
+          "synset_id": "130514-V",
+          "title": "ВЫСИДЕТЬ (СОЧИНИТЬ, НАПИСАТЬ В РЕЗУЛЬТАТЕ ДОЛГОГО СИДЕНИЯ)",
+          "depth": 3,
+          "parent_slug": "emotion_stradat_ispytyvat_vyzhat_iz"
+        },
+        {
+          "synset_id": "130826-V",
+          "title": "КОЧЕНЕТЬ ОТ ХОЛОДА",
+          "depth": 3,
+          "parent_slug": "emotion_stradat_ispytyvat_merznut_ot"
+        }
+      ]
+    },
+    {
+      "anchor": "causation",
+      "pruned": [
+        {
+          "synset_id": "106493-V",
+          "title": "СОЗДАТЬ (СДЕЛАТЬ СУЩЕСТВУЮЩИМ)",
+          "depth": 1,
+          "parent_slug": "causation"
+        },
+        {
+          "synset_id": "135613-V",
+          "title": "ФОКУСИРОВАНИЕ ЛУЧЕЙ",
+          "depth": 2,
+          "parent_slug": "causation_napravit"
+        },
+        {
+          "synset_id": "115695-V",
+          "title": "СВЕТИТЬ, НАПРАВЛЯТЬ СВЕТ",
+          "depth": 2,
+          "parent_slug": "causation_napravit"
+        },
+        {
+          "synset_id": "1885-V",
+          "title": "РАСПРОСТРАНЕНИЕ ИНФОРМАЦИИ",
+          "depth": 2,
+          "parent_slug": "causation_rasprostranit"
+        },
+        {
+          "synset_id": "120394-V",
+          "title": "УПРОСТИТЬ, ОБЛЕГЧИТЬ",
+          "depth": 2,
+          "parent_slug": "causation_izmenit_sdelat"
+        },
+        {
+          "synset_id": "6317-V",
+          "title": "КОНФИСКАЦИЯ ИМУЩЕСТВА",
+          "depth": 2,
+          "parent_slug": "causation_prinudit_zastavit"
+        },
+        {
+          "synset_id": "5419-V",
+          "title": "РЕКВИЗИЦИЯ",
+          "depth": 2,
+          "parent_slug": "causation_prinudit_zastavit"
+        },
+        {
+          "synset_id": "142130-V",
+          "title": "СТОЛКНУТЬ (ЗАСТАВИТЬ ВОЙТИ В СОПРИКОСНОВЕНИЕ)",
+          "depth": 2,
+          "parent_slug": "causation_prinudit_zastavit"
+        },
+        {
+          "synset_id": "135686-V",
+          "title": "ЭКСПРОПРИАЦИЯ СОБСТВЕННОСТИ",
+          "depth": 2,
+          "parent_slug": "causation_prinudit_zastavit"
+        },
+        {
+          "synset_id": "124242-V",
+          "title": "ОБОЗВАТЬ",
+          "depth": 3,
+          "parent_slug": "causation_prichinit_obidet_prichinit"
+        },
+        {
+          "synset_id": "128989-V",
+          "title": "САМОБИЧЕВАНИЕ",
+          "depth": 3,
+          "parent_slug": "causation_prichinit_muchit"
+        },
+        {
+          "synset_id": "4869-V",
+          "title": "КОНВОИРОВАНИЕ",
+          "depth": 3,
+          "parent_slug": "causation_ohranyat_ohrannaya_deyatelnost"
+        },
+        {
+          "synset_id": "134071-V",
+          "title": "ПРЕЛОМЛЕНИЕ ЛУЧА",
+          "depth": 3,
+          "parent_slug": "causation_napravit_povernut_pri"
+        },
+        {
+          "synset_id": "147517-V",
+          "title": "БОЧКА (ФИГУРА ВЫСШЕГО ПИЛОТАЖА)",
+          "depth": 3,
+          "parent_slug": "causation_napravit_povernut_pri"
+        },
+        {
+          "synset_id": "117989-V",
+          "title": "ОГЛЯНУТЬСЯ, ПОСМОТРЕТЬ НАЗАД",
+          "depth": 3,
+          "parent_slug": "causation_napravit_smotret_napravlyat"
+        },
+        {
+          "synset_id": "134120-V",
+          "title": "ПРИСМОТРЕТЬСЯ (ПРИВЫКНУТЬ СМОТРЕТЬ)",
+          "depth": 3,
+          "parent_slug": "causation_napravit_smotret_napravlyat"
+        },
+        {
+          "synset_id": "127101-V",
+          "title": "НАСМОТРЕТЬСЯ (ПОСМОТРЕТЬ ВДОВОЛЬ; НАСЛАДИТЬСЯ)",
+          "depth": 3,
+          "parent_slug": "causation_napravit_smotret_napravlyat"
+        },
+        {
+          "synset_id": "131597-V",
+          "title": "ЗАСТУДИТЬ (ОЗЯБНУВ, ПРОСТУДИТЬ)",
+          "depth": 3,
+          "parent_slug": "causation_vyzvat_porodit_prostudit"
+        },
+        {
+          "synset_id": "114653-V",
+          "title": "ДОСТАВИТЬ УДОВОЛЬСТВИЕ",
+          "depth": 3,
+          "parent_slug": "causation_vyzvat_porodit_vyzvat_mysl"
+        },
+        {
+          "synset_id": "143196-V",
+          "title": "ПОДКИНУТЬ ИДЕЮ, МЫСЛЬ",
+          "depth": 3,
+          "parent_slug": "causation_vyzvat_porodit_vyzvat_mysl"
+        },
+        {
+          "synset_id": "135456-V",
+          "title": "УЖИТЬСЯ (НАЛАЖИВАТЬ СОГЛАСНУЮ ЖИЗНЬ С КЕМ-ТО)",
+          "depth": 3,
+          "parent_slug": "causation_navodit_poryadok_regulirovat_uporyadochivat"
+        },
+        {
+          "synset_id": "141979-V",
+          "title": "МАКСИМИЗАЦИЯ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_uvelichit"
+        },
+        {
+          "synset_id": "107427-V",
+          "title": "ТРАМБОВАТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_uplotnit"
+        },
+        {
+          "synset_id": "133687-V",
+          "title": "ПЕРЕФРАЗИРОВАТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_vidoizmenit"
+        },
+        {
+          "synset_id": "137963-V",
+          "title": "ОСОВРЕМЕНИТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_vidoizmenit"
+        },
+        {
+          "synset_id": "7936-V",
+          "title": "РЕФОРМА",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_preobrazovat_peredelat"
+        },
+        {
+          "synset_id": "123832-V",
+          "title": "РЕОРГАНИЗАЦИЯ, ПЕРЕУСТРОЙСТВО",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_preobrazovat_peredelat"
+        },
+        {
+          "synset_id": "118543-V",
+          "title": "ПРЕИСПОЛНИТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_napolnit"
+        },
+        {
+          "synset_id": "151807-V",
+          "title": "УКРАСИТЬ СОБОЙ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_uluchshit"
+        },
+        {
+          "synset_id": "134882-V",
+          "title": "СЖИЖЕНИЕ ГАЗА",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_prevratit"
+        },
+        {
+          "synset_id": "137154-V",
+          "title": "ВЫЩЕЛАЧИВАНИЕ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_prevratit"
+        },
+        {
+          "synset_id": "121354-V",
+          "title": "ВОССОЕДИНИТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_vosstanovit_prezhnee"
+        },
+        {
+          "synset_id": "116036-V",
+          "title": "ВЫДЕЛАТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_obrabatyvat_podvergat"
+        },
+        {
+          "synset_id": "115016-V",
+          "title": "ЧЕКАНКА (ИЗГОТОВЛЕНИЕ)",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_obrabatyvat_podvergat"
+        },
+        {
+          "synset_id": "144428-V",
+          "title": "ТОКАРНЫЕ РАБОТЫ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_obrabatyvat_podvergat"
+        },
+        {
+          "synset_id": "115022-V",
+          "title": "ДУБЛЕНИЕ КОЖИ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_obrabatyvat_podvergat"
+        },
+        {
+          "synset_id": "5289-V",
+          "title": "СУШКА ЗЕРНА",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_obrabatyvat_podvergat"
+        },
+        {
+          "synset_id": "106895-V",
+          "title": "ОБЪЯСНИТЬ, РАЗЪЯСНИТЬ",
+          "depth": 3,
+          "parent_slug": "causation_izmenit_sdelat_proyasnit_vnesti"
+        },
+        {
+          "synset_id": "118094-V",
+          "title": "ПРЕСЛЕДОВАТЬ (ПРИТЕСНЯТЬ)",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_pritesnit"
+        },
+        {
+          "synset_id": "107373-V",
+          "title": "ПРИКАЗАТЬ, ОТДАТЬ ПРИКАЗ",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_obyazat_nalozhit"
+        },
+        {
+          "synset_id": "114690-V",
+          "title": "РАЗРЫВ ОТНОШЕНИЙ",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_prekratit_polozhit"
+        },
+        {
+          "synset_id": "121244-V",
+          "title": "ОТМЕНИТЬ",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_prekratit_polozhit"
+        },
+        {
+          "synset_id": "138220-V",
+          "title": "ПРИОБЩИТЬ (ВОВЛЕЧЬ, ПОЗНАКОМИТЬ)",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_priuchit"
+        },
+        {
+          "synset_id": "106954-V",
+          "title": "ГРОЗИТЬ, ПРЕДУПРЕЖДАТЬ С УГРОЗОЙ",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_davit_okazyvat"
+        },
+        {
+          "synset_id": "112297-V",
+          "title": "ПОДСКАЗАТЬ (НАПОМНИТЬ)",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_napomnit_zastavit"
+        },
+        {
+          "synset_id": "129333-V",
+          "title": "ТЫКАТЬ, ПОСТОЯННО НАПОМИНАТЬ",
+          "depth": 3,
+          "parent_slug": "causation_prinudit_zastavit_napomnit_zastavit"
+        }
+      ]
+    }
+  ]
+}

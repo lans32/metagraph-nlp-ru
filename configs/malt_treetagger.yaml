@@ -11,20 +11,18 @@ segmentation:
 
 morphsyntax:
   parser: maltparser
-  # TreeTagger (морфо)
-  tree_tagger_bin: TreeTagger/bin/tree-tagger.exe
+  # TreeTagger (морфо) — macOS arm64 binary
+  tree_tagger_bin: TreeTagger/bin/tree-tagger
   tree_tagger_param: TreeTagger/lib/russian.par
   tree_tagger_tagset: msd_ru
   # MaltParser (синтаксис)
-  malt_jar: maltparser/maltparser-1.9.2/maltparser-1.9.2.jar
-  # ВАЖНО: .mco-модели для русского официально нет. Обучи свою через
-  # `java -jar maltparser-1.9.2.jar -c ru_syntagrus -m learn \
-  #     -i UD_Russian-SynTagRus/ru_syntagrus-ud-train-a.conllu \
-  #     -if appdata/dataformat/conllu.xml`
-  # → получится файл ru_syntagrus.mco. См. README.
-  malt_model: maltparser/maltparser-1.9.2/ru_syntagrus.mco
-  java_bin: java
-  # malt_deprel_mapping: null  # модель обучена на UD → identity
+  malt_jar: maltparser/maltparser-1.9.2.jar
+  # Используется pre-trained russian.mco (Sharoff & Nivre, CoNLL-X формат).
+  # Если хочется UD-native — обучить ru_syntagrus.mco по инструкции в README.
+  malt_model: maltparser/russian.mco
+  java_bin: /opt/homebrew/opt/openjdk@17/bin/java
+  # russian.mco даёт SynTagRus-deprels — мапим в UD, иначе clauses/graph не работают
+  malt_deprel_mapping: configs/malt_deprel_syntagrus_to_ud.yaml
   workers: 1
   parallel_threshold: 16
 

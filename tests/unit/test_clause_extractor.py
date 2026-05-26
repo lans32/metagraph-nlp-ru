@@ -169,6 +169,55 @@ def test_ccomp_nested_clause():
     assert "устал" in nested.span.text
 
 
+def test_ccomp_nominal_short_adj_predicate():
+    """Краткое прилагательное в ccomp: «Преподаватель сказал, что задача сложна»."""
+    ids = IdFactory()
+    text = "Преподаватель сказал, что задача сложна."
+    sent = _mk_sentence(ids, text)
+    parsed = ParsedSentence(
+        text=text,
+        tokens=[
+            _tok(1, "Преподаватель", "преподаватель", "NOUN", head=2, deprel="nsubj", start=0, end=13),
+            _tok(
+                2,
+                "сказал",
+                "сказать",
+                "VERB",
+                head=0,
+                deprel="root",
+                start=14,
+                end=20,
+                feats={"VerbForm": "Fin"},
+            ),
+            _tok(3, ",", ",", "PUNCT", head=6, deprel="punct", start=20, end=21),
+            _tok(4, "что", "что", "SCONJ", head=6, deprel="mark", start=22, end=25),
+            _tok(5, "задача", "задача", "NOUN", head=6, deprel="nsubj", start=26, end=32),
+            _tok(
+                6,
+                "сложна",
+                "сложный",
+                "ADJ",
+                head=2,
+                deprel="ccomp",
+                start=33,
+                end=39,
+                feats={"Variant": "Short"},
+            ),
+            _tok(7, ".", ".", "PUNCT", head=2, deprel="punct", start=39, end=40),
+        ],
+    )
+    clauses = extract_clauses([sent], ids, {sent.id: parsed})
+    assert len(clauses) == 2
+    by_lemma = {c.head_lemma: c for c in clauses}
+    assert set(by_lemma) == {"сказать", "сложный"}
+    assert by_lemma["сказать"].clause_type == "main"
+    assert by_lemma["сложный"].clause_type == "compl"
+    # Главная клауза не должна захватывать ccomp-поддерево.
+    main = by_lemma["сказать"]
+    assert "сложна" not in main.span.text
+    assert "задача" not in main.span.text
+
+
 def test_fallback_when_no_predicate_and_no_copula():
     ids = IdFactory()
     text = "Тишина."
