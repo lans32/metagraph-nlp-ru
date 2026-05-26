@@ -63,6 +63,12 @@ def _find_predicate(clause: Clause, parsed: ParsedSentence) -> Token | None:
                 return t
             if target_text and t.text == target_text:
                 return t
+        # Копульные клаузы: голова — не VERB (NOUN/ADJ/PRON/...).
+        for t in parsed.tokens:
+            if target_lemma and t.lemma == target_lemma:
+                return t
+            if target_text and t.text == target_text:
+                return t
     return parsed.root()
 
 
@@ -216,6 +222,28 @@ def build_semantic_graph(
         )
 
         subject_token: Token | None = None
+
+        # Копульная клауза: X — это Y. Создаём субъект и сам именной
+        # предикат как отдельные узлы; рёбер и nmod-расширений не делаем.
+        if clause.clause_type == "copular" and predicate.pos != "VERB":
+            for child in parsed.children_of(predicate.id_in_sent):
+                if child.id_in_sent not in clause_ids:
+                    continue
+                if child.deprel in _SUBJ_DEPRELS:
+                    subject_token = child
+                    break
+            if subject_token is not None:
+                graph.nodes.append(
+                    _make_node(subject_token, clause, document, ids)
+                )
+            graph.nodes.append(
+                _make_node(
+                    predicate, clause, document, ids,
+                    extra_note="nominal_predicate",
+                )
+            )
+            continue
+
         object_tokens: list[tuple[Token, str | None]] = []
 
         for child in parsed.children_of(predicate.id_in_sent):

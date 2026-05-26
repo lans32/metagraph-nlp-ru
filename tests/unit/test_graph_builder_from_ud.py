@@ -198,6 +198,52 @@ def test_nmod_with_preposition_expands_as_extra_node_and_edge():
     assert nmod_edge.kind == "prepositional"
 
 
+def test_copular_clause_creates_subject_and_nominal_predicate_nodes():
+    ids = IdFactory()
+    text = "RuWordNet — это тезаурус"
+    doc, _stub_clause, sent_id = _make_doc_clause(text, ids)
+
+    clause = Clause(
+        id=ids.clause(),
+        sentence_id=sent_id,
+        document_id=doc.id,
+        span=TextSpan(start=0, end=len(text), text=text),
+        head_text="тезаурус",
+        head_lemma="тезаурус",
+        clause_type="copular",
+        provenance=_prov("clauses"),
+    )
+
+    parsed = ParsedSentence(
+        text=text,
+        tokens=[
+            Token(id_in_sent=1, text="RuWordNet", lemma="ruwordnet", pos="PROPN",
+                  head=4, deprel="nsubj", start=0, end=9),
+            Token(id_in_sent=2, text="—", lemma="—", pos="PUNCT",
+                  head=4, deprel="punct", start=10, end=11),
+            Token(id_in_sent=3, text="это", lemma="это", pos="PRON",
+                  head=4, deprel="cop", start=12, end=15),
+            Token(id_in_sent=4, text="тезаурус", lemma="тезаурус", pos="NOUN",
+                  head=0, deprel="root", start=16, end=24),
+        ],
+    )
+
+    graph = build_semantic_graph(doc, [clause], {sent_id: parsed}, ids)
+
+    labels = sorted(n.label for n in graph.nodes)
+    assert labels == ["ruwordnet", "тезаурус"]
+    assert len(graph.edges) == 0
+
+    pred_node = next(n for n in graph.nodes if n.label == "тезаурус")
+    assert pred_node.upos == "NOUN"
+    assert pred_node.clause_id == clause.id
+    assert "nominal_predicate" in (pred_node.provenance.notes or "")
+
+    subj_node = next(n for n in graph.nodes if n.label == "ruwordnet")
+    assert subj_node.kind == "entity"
+    assert subj_node.clause_id == clause.id
+
+
 def test_conj_verb_inherits_subject_from_coordinating_head():
     ids = IdFactory()
     text = "Студент читал и писал статьи"

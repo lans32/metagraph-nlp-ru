@@ -114,13 +114,47 @@ def _is_participial(token: Token) -> bool:
     return token.pos == "VERB" and token.feats.get("VerbForm") == "Part"
 
 
+_NOMINAL_PREDICATE_POS: set[str] = {"NOUN", "PROPN", "ADJ", "PRON", "NUM"}
+_SUBJECT_DEPRELS_FOR_COPULA: set[str] = {"nsubj", "nsubj:pass"}
+
+
+def _has_copula(token: Token, parsed: ParsedSentence) -> bool:
+    """Признак копулы у nominal head.
+
+    Учитываем три варианта разметки:
+    - UD-стандарт: ребёнок с ``deprel=='cop'`` (явная связка);
+    - natasha/SynTagRus: ``deprel=='expl'`` и ``lemma=='это'``
+      (связочное «это» размечается как PART/expl, а не cop);
+    - нулевая связка: NOUN/ADJ-root с ребёнком-субъектом без явной
+      копулы («Москва — столица России») — фиксируется наличием nsubj.
+    """
+    has_subject = False
+    for c in parsed.children_of(token.id_in_sent):
+        if c.deprel == "cop":
+            return True
+        if c.deprel == "expl" and c.lemma == "это":
+            return True
+        if c.deprel in _SUBJECT_DEPRELS_FOR_COPULA:
+            has_subject = True
+    return has_subject
+
+
+def _is_nominal_predicate(token: Token, parsed: ParsedSentence) -> bool:
+    """Именное сказуемое: NOUN/ADJ/PROPN/PRON/NUM-head с признаком копулы."""
+    return token.pos in _NOMINAL_PREDICATE_POS and _has_copula(token, parsed)
+
+
 def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
-    """Предикаты клауз: финитные VERB + причастия в предикативных позициях.
+    """Предикаты клауз: финитные VERB + причастия + именное сказуемое с cop.
 
     Причастие считается предикатом, если:
     - deprel=root (краткое причастие как именное сказуемое);
     - deprel in _SUBORDINATE_CLAUSE_DEPRELS (вложенная клауза);
     - deprel in (acl, acl:relcl) (причастный оборот).
+
+    Именное сказуемое с копулой (NOUN/ADJ/PROPN/PRON/NUM + ребёнок с
+    deprel=cop) считается предикатом только в позиции root — это
+    конструкции вида «RuWordNet — это тезаурус».
     """
     predicates: list[Token] = []
     seen: set[int] = set()
@@ -153,6 +187,11 @@ def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
             if t.deprel in ("acl", "acl:relcl"):
                 predicates.append(t)
                 seen.add(t.id_in_sent)
+            continue
+
+        if t.deprel == "root" and _is_nominal_predicate(t, parsed):
+            predicates.append(t)
+            seen.add(t.id_in_sent)
 
     return predicates
 
@@ -160,6 +199,8 @@ def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
 def _determine_clause_type(pred: Token, parsed: ParsedSentence) -> str:
     """Лингвистический тип клаузы по deprel предиката и морфологии."""
     if pred.deprel == "root":
+        if pred.pos != "VERB":
+            return "copular"
         return "main"
     if pred.deprel == "conj":
         head = parsed.by_id(pred.head)

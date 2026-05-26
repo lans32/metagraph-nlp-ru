@@ -169,7 +169,7 @@ def test_ccomp_nested_clause():
     assert "устал" in nested.span.text
 
 
-def test_fallback_when_no_verb():
+def test_fallback_when_no_predicate_and_no_copula():
     ids = IdFactory()
     text = "Тишина."
     sent = _mk_sentence(ids, text)
@@ -185,6 +185,70 @@ def test_fallback_when_no_verb():
     assert clauses[0].clause_type is None
     assert clauses[0].provenance.rule == "sentence_as_clause_v0"
     assert "fallback" in (clauses[0].provenance.notes or "")
+
+
+def test_copular_clause_type():
+    ids = IdFactory()
+    text = "RuWordNet — это тезаурус."
+    sent = _mk_sentence(ids, text)
+    parsed = ParsedSentence(
+        text=text,
+        tokens=[
+            _tok(1, "RuWordNet", "ruwordnet", "PROPN", head=4, deprel="nsubj", start=0, end=9),
+            _tok(2, "—", "—", "PUNCT", head=4, deprel="punct", start=10, end=11),
+            _tok(3, "это", "это", "PRON", head=4, deprel="cop", start=12, end=15),
+            _tok(4, "тезаурус", "тезаурус", "NOUN", head=0, deprel="root", start=16, end=24),
+            _tok(5, ".", ".", "PUNCT", head=4, deprel="punct", start=24, end=25),
+        ],
+    )
+    clauses = extract_clauses([sent], ids, {sent.id: parsed})
+    assert len(clauses) == 1
+    assert clauses[0].clause_type == "copular"
+    assert clauses[0].head_lemma == "тезаурус"
+    assert clauses[0].head_text == "тезаурус"
+    assert clauses[0].provenance.rule == "ud_subtree_clauses_v0"
+
+
+def test_copular_clause_natasha_expl_eto():
+    """natasha (SynTagRus) размечает «это» как PART/expl, а не cop."""
+    ids = IdFactory()
+    text = "RuWordNet — это тезаурус."
+    sent = _mk_sentence(ids, text)
+    parsed = ParsedSentence(
+        text=text,
+        tokens=[
+            _tok(1, "RuWordNet", "ruwordnet", "X", head=4, deprel="nsubj", start=0, end=9),
+            _tok(2, "—", "—", "PUNCT", head=1, deprel="punct", start=10, end=11),
+            _tok(3, "это", "это", "PART", head=4, deprel="expl", start=12, end=15),
+            _tok(4, "тезаурус", "тезаурус", "NOUN", head=0, deprel="root", start=16, end=24),
+            _tok(5, ".", ".", "PUNCT", head=4, deprel="punct", start=24, end=25),
+        ],
+    )
+    clauses = extract_clauses([sent], ids, {sent.id: parsed})
+    assert len(clauses) == 1
+    assert clauses[0].clause_type == "copular"
+    assert clauses[0].head_lemma == "тезаурус"
+
+
+def test_copular_clause_zero_copula():
+    """Нулевая связка без cop/expl: «Москва — столица России»."""
+    ids = IdFactory()
+    text = "Москва — столица России."
+    sent = _mk_sentence(ids, text)
+    parsed = ParsedSentence(
+        text=text,
+        tokens=[
+            _tok(1, "Москва", "москва", "PROPN", head=3, deprel="nsubj", start=0, end=6),
+            _tok(2, "—", "—", "PUNCT", head=3, deprel="punct", start=7, end=8),
+            _tok(3, "столица", "столица", "NOUN", head=0, deprel="root", start=9, end=16),
+            _tok(4, "России", "россия", "PROPN", head=3, deprel="nmod", start=17, end=23),
+            _tok(5, ".", ".", "PUNCT", head=3, deprel="punct", start=23, end=24),
+        ],
+    )
+    clauses = extract_clauses([sent], ids, {sent.id: parsed})
+    assert len(clauses) == 1
+    assert clauses[0].clause_type == "copular"
+    assert clauses[0].head_lemma == "столица"
 
 
 def test_legacy_strategy_sentence_as_clause():
