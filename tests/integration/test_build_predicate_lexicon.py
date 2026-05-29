@@ -22,8 +22,7 @@ pytestmark = pytest.mark.slow
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _build(tmp_path: Path) -> Path:
-    """Вызвать build_predicate_lexicon с маленькими anchors для двух классов."""
+def _import_builder():
     pytest.importorskip("ruwordnet")
     import sys
 
@@ -32,23 +31,31 @@ def _build(tmp_path: Path) -> Path:
         import build_predicate_lexicon as builder
     finally:
         sys.path.pop(0)
+    return builder
+
+
+def _build(tmp_path: Path) -> Path:
+    """Вызвать build_predicate_lexicon с маленькими anchors для двух классов."""
+    builder = _import_builder()
 
     anchors_path = tmp_path / "test_anchors.yaml"
     anchors_path.write_text(
-        # Два узких якоря для скорости теста.
+        # Два узких якоря для скорости теста (motion и volition не пересекаются).
         yaml.safe_dump(
             {
-                "version": 0,
+                "version": 1,
                 "anchors": {
                     "motion": {
                         "seed_lemma": "перемещаться",
                         "label_ru": "движение",
                         "resolved_synset_id": "106587-V",
+                        "priority": 10,
                     },
                     "volition": {
                         "seed_lemma": "хотеть",
                         "label_ru": "желание",
                         "resolved_synset_id": "119928-V",
+                        "priority": 20,
                     },
                 },
             },
@@ -58,7 +65,7 @@ def _build(tmp_path: Path) -> Path:
     )
 
     output_path = tmp_path / "lex.yaml"
-    lexicon = builder.build_lexicon(anchors_path, max_depth=2)
+    lexicon, _prune = builder.build_lexicon(anchors_path, max_depth=2)
 
     with output_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(lexicon, f, allow_unicode=True, sort_keys=False)
@@ -114,3 +121,113 @@ def test_built_yaml_loads_back_via_loader(tmp_path):
         lemma for lemma, classes in lex.items() if "motion" in classes
     ]
     assert motion_lemmas, "ожидается хотя бы одна лемма с классом motion"
+
+
+def test_build_lexicon_prunes_overlap(tmp_path):
+    """Synset 106915-V (perception root) не должен оказаться в emotion-ветке.
+
+    emotion (`116921-V` "пережить") содержит synset `106915-V`
+    "ощущать, воспринимать" как потомка — это же корень `perception`.
+    При priority=10 для perception и priority=110 для emotion якорь
+    perception обрабатывается первым и резервирует 106915-V; BFS emotion
+    должен пропустить его вместе с поддеревом.
+    """
+    builder = _import_builder()
+
+    anchors_path = tmp_path / "overlap_anchors.yaml"
+    anchors_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "anchors": {
+                    "perception": {
+                        "seed_lemma": "воспринимать",
+                        "label_ru": "ощущать, воспринимать",
+                        "resolved_synset_id": "106915-V",
+                        "priority": 10,
+                    },
+                    "emotion": {
+                        "seed_lemma": "переживать",
+                        "label_ru": "пережить, испытать (эмоцию, состояние)",
+                        "resolved_synset_id": "116921-V",
+                        "priority": 110,
+                    },
+                },
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    lexicon, prune_report = builder.build_lexicon(anchors_path, max_depth=2)
+
+    # Оба root-класса присутствуют, perception идёт первым в priority_order.
+    assert "perception" in lexicon["hierarchy"]
+    assert "emotion" in lexicon["hierarchy"]
+    assert lexicon["hierarchy"]["perception"]["level"] == "root"
+    assert lexicon["hierarchy"]["emotion"]["level"] == "root"
+    assert lexicon["metadata"]["priority_order"][0] == "perception"
+    assert lexicon["metadata"]["priority_order"][-1] == "emotion"
+
+    # Ни один slug в emotion_*-поддереве не должен ссылаться на synset
+    # 106915-V (он принадлежит perception).
+    overlapping_synset = "106915-V"
+    emotion_slugs_with_overlap = [
+        slug
+        for slug, meta in lexicon["hierarchy"].items()
+        if slug.startswith("emotion") and meta["anchor_synset_id"] == overlapping_synset
+    ]
+    assert not emotion_slugs_with_overlap, (
+        f"synset {overlapping_synset} не должен быть в emotion-ветке, "
+        f"найдено: {emotion_slugs_with_overlap}"
+    )
+
+    # Лемма "воспринимать" — только в путях, оканчивающихся на perception
+    # (root-класс пути идёт ПОСЛЕДНИМ в path-listе по контракту v1:
+    # paths = [leaf, ..., root]).
+    paths_for_lemma = lexicon["lemmas"].get("воспринимать", [])
+    assert paths_for_lemma, "лемма 'воспринимать' должна быть в perception-дереве"
+    roots = {path[-1] for path in paths_for_lemma}
+    assert roots == {"perception"}, (
+        f"'воспринимать' попала в неожиданные корни: {roots}"
+    )
+
+    # Prune-отчёт зафиксировал отрезанные synset-ы у emotion.
+    assert lexicon["metadata"]["pruned_synset_count"] >= 1
+    emotion_prunes = [r for r in prune_report if r["anchor"] == "emotion"]
+    assert emotion_prunes, "ожидается prune-запись для emotion"
+    pruned_ids = {p["synset_id"] for p in emotion_prunes[0]["pruned"]}
+    assert overlapping_synset in pruned_ids
+
+
+def test_build_lexicon_orders_by_priority(tmp_path):
+    """priority определяет порядок обхода, а не алфавит ключей."""
+    builder = _import_builder()
+
+    anchors_path = tmp_path / "prio_anchors.yaml"
+    anchors_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "anchors": {
+                    "motion": {
+                        "seed_lemma": "перемещаться",
+                        "label_ru": "движение",
+                        "resolved_synset_id": "106587-V",
+                        "priority": 30,
+                    },
+                    "volition": {
+                        "seed_lemma": "хотеть",
+                        "label_ru": "желание",
+                        "resolved_synset_id": "119928-V",
+                        "priority": 10,
+                    },
+                },
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    lexicon, _ = builder.build_lexicon(anchors_path, max_depth=1)
+    assert lexicon["metadata"]["priority_order"] == ["volition", "motion"]

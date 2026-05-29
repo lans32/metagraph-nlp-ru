@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import json
 import logging
 import re
 import sys
@@ -118,28 +119,58 @@ def collect_hierarchy(
     anchor_synset,
     anchor_label_ru: str,
     max_depth: int,
-) -> tuple[dict[str, dict], dict[str, list[list[str]]]]:
-    """BFS hyponyms от anchor до max_depth.
+    global_visited: set[str] | None = None,
+) -> tuple[dict[str, dict], dict[str, list[list[str]]], list[dict], set[str]]:
+    """BFS hyponyms от anchor до max_depth с overlap-prune.
 
-    Возвращает (hierarchy, lemmas) где:
+    Возвращает (hierarchy, lemmas, pruned, owned_synset_ids) где:
     - hierarchy[slug] = {parent, level, anchor_synset_id, label_ru, ru_title}
     - lemmas[lemma] = список путей [leaf_slug, ..., root_slug]
+    - pruned = список synset-ов, отрезанных из-за принадлежности другому
+      якорю (с указанием depth и parent_slug — для аудита)
+    - owned_synset_ids = synset-ы, реально включённые в это дерево
+      (для пополнения global_visited в вызывающей функции)
+
+    Если `global_visited` задан, synset-ы из него (кроме самого anchor)
+    пропускаются вместе с поддеревьями — BFS не разворачивает их
+    дочерние узлы. Это reservation-based overlap-prune: тот, кто
+    обходит дерево раньше, забирает synset; остальные пропускают.
+
+    Корень-якорь всегда включается, даже если он есть в global_visited
+    (защита от инверсии priority — не должно случаться, но безопасно).
     """
     hierarchy: dict[str, dict] = {}
     lemmas: dict[str, list[list[str]]] = defaultdict(list)
     used_slugs: set[str] = {anchor_slug}
-    visited_synsets: set[str] = set()
+    # Локальный visited = global \ {anchor}: чужие synset-ы пропускаем,
+    # свой корень всегда включаем.
+    visited_synsets: set[str] = set(global_visited or set()) - {anchor_synset.id}
+    pruned: list[dict] = []
+    owned_synset_ids: set[str] = set()
 
-    # Очередь: (synset, slug, depth, path_to_root)
-    queue: list[tuple[object, str, int, list[str]]] = [
-        (anchor_synset, anchor_slug, 0, [])
+    # Очередь: (synset, slug, depth, path_to_root, parent_slug_for_prune_log)
+    queue: list[tuple[object, str, int, list[str], str | None]] = [
+        (anchor_synset, anchor_slug, 0, [], None)
     ]
 
     while queue:
-        synset, slug, depth, parent_path = queue.pop(0)
+        synset, slug, depth, parent_path, parent_slug = queue.pop(0)
         if synset.id in visited_synsets:
+            # Может быть либо уже-визитированным в этом же BFS (дубль в
+            # очереди), либо забранным более приоритетным якорем. Различаем
+            # по global_visited.
+            if global_visited and synset.id in global_visited:
+                pruned.append(
+                    {
+                        "synset_id": synset.id,
+                        "title": getattr(synset, "title", ""),
+                        "depth": depth,
+                        "parent_slug": parent_slug,
+                    }
+                )
             continue
         visited_synsets.add(synset.id)
+        owned_synset_ids.add(synset.id)
 
         # Текущий путь = [slug, ...parent_path]
         path_from_self = [slug] + parent_path
@@ -172,12 +203,26 @@ def collect_hierarchy(
         if depth < max_depth:
             for child_synset in (synset.hyponyms or []):
                 if child_synset.id in visited_synsets:
+                    # Логируем prune здесь (а не только при pop), чтобы
+                    # зафиксировать, кто реальный "родитель в этом якоре"
+                    # отрезанного поддерева.
+                    if global_visited and child_synset.id in global_visited:
+                        pruned.append(
+                            {
+                                "synset_id": child_synset.id,
+                                "title": getattr(child_synset, "title", ""),
+                                "depth": depth + 1,
+                                "parent_slug": slug,
+                            }
+                        )
                     continue
                 child_slug = make_unique_slug(slug, child_synset.title, used_slugs)
                 used_slugs.add(child_slug)
-                queue.append((child_synset, child_slug, depth + 1, path_from_self))
+                queue.append(
+                    (child_synset, child_slug, depth + 1, path_from_self, slug)
+                )
 
-    return hierarchy, dict(lemmas)
+    return hierarchy, dict(lemmas), pruned, owned_synset_ids
 
 
 def merge_into_global(
@@ -227,8 +272,29 @@ def resolve_anchor_synset(wn, anchor_name: str, anchor_cfg: dict):
     return synset
 
 
-def build_lexicon(anchors_path: Path, max_depth: int) -> dict:
-    """Главная функция: построить YAML-структуру v1 из anchors + RuWordNet."""
+def _ordered_anchors(anchors_cfg: dict) -> list[tuple[str, dict]]:
+    """Отсортировать якоря по `priority` (default 1000), затем по имени.
+
+    Стабильность: при равных priority побеждает алфавитный порядок имени.
+    Якоря без priority оказываются в самом конце — это сохраняет старое
+    поведение для anchor-файлов version=0 без поля.
+    """
+    return sorted(
+        anchors_cfg.items(),
+        key=lambda kv: (int(kv[1].get("priority", 1000)), kv[0]),
+    )
+
+
+def build_lexicon(
+    anchors_path: Path, max_depth: int
+) -> tuple[dict, list[dict]]:
+    """Построить YAML-структуру v1 из anchors + RuWordNet.
+
+    Возвращает (lexicon, prune_report). prune_report записывается в
+    sidecar JSON рядом с YAML — он документирует, какие synset-ы были
+    отрезаны у каждого якоря из-за owned_by-резервирования более
+    приоритетным якорем.
+    """
     try:
         from ruwordnet import RuWordNet
     except ImportError as e:  # pragma: no cover
@@ -244,9 +310,13 @@ def build_lexicon(anchors_path: Path, max_depth: int) -> dict:
     wn = RuWordNet()
     global_hierarchy: dict[str, dict] = {}
     global_lemmas: dict[str, list[list[str]]] = defaultdict(list)
+    global_visited: set[str] = set()
+    prune_report: list[dict] = []
+    priority_order: list[str] = []
+    total_pruned = 0
 
-    for anchor_name in sorted(anchors_cfg.keys()):
-        cfg = anchors_cfg[anchor_name]
+    for anchor_name, cfg in _ordered_anchors(anchors_cfg):
+        priority_order.append(anchor_name)
         synset = resolve_anchor_synset(wn, anchor_name, cfg)
         actual_hyponyms = len(synset.hyponyms or [])
         expected = cfg.get("expected_hyponyms")
@@ -255,16 +325,25 @@ def build_lexicon(anchors_path: Path, max_depth: int) -> dict:
                 "Anchor %s: expected %d hyponyms, found %d (RuWordNet drift?)",
                 anchor_name, expected, actual_hyponyms
             )
-        local_hierarchy, local_lemmas = collect_hierarchy(
+        local_hierarchy, local_lemmas, pruned, owned = collect_hierarchy(
             wn=wn,
             anchor_slug=anchor_name,
             anchor_synset=synset,
             anchor_label_ru=cfg["label_ru"],
             max_depth=max_depth,
+            global_visited=global_visited,
         )
+        global_visited |= owned
+        if pruned:
+            total_pruned += len(pruned)
+            prune_report.append({"anchor": anchor_name, "pruned": pruned})
         logger.info(
-            "Anchor %s: %d classes, %d unique lemmas",
-            anchor_name, len(local_hierarchy), len(local_lemmas)
+            "Anchor %s (priority=%d): %d classes, %d unique lemmas, pruned %d synsets",
+            anchor_name,
+            int(cfg.get("priority", 1000)),
+            len(local_hierarchy),
+            len(local_lemmas),
+            len(pruned),
         )
         merge_into_global(global_hierarchy, global_lemmas, local_hierarchy, local_lemmas)
 
@@ -281,7 +360,7 @@ def build_lexicon(anchors_path: Path, max_depth: int) -> dict:
         paths = sorted(global_lemmas[lemma], key=lambda p: (len(p), p))
         lemmas_sorted[lemma] = paths
 
-    return {
+    lexicon = {
         "version": 1,
         "metadata": {
             "source": "ruwordnet-2.0",
@@ -292,10 +371,13 @@ def build_lexicon(anchors_path: Path, max_depth: int) -> dict:
             "anchors_file_sha256": anchors_sha,
             "class_count": len(hierarchy_sorted),
             "lemma_count": len(lemmas_sorted),
+            "pruned_synset_count": total_pruned,
+            "priority_order": priority_order,
         },
         "hierarchy": hierarchy_sorted,
         "lemmas": lemmas_sorted,
     }
+    return lexicon, prune_report
 
 
 def main() -> int:
@@ -328,7 +410,7 @@ def main() -> int:
         return 2
 
     logger.info("Building lexicon from %s (max_depth=%d)", args.anchors, args.max_depth)
-    lexicon = build_lexicon(args.anchors, args.max_depth)
+    lexicon, prune_report = build_lexicon(args.anchors, args.max_depth)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as f:
@@ -341,9 +423,30 @@ def main() -> int:
             width=120,
         )
 
+    # Sidecar JSON с prune-отчётом — что отрезано у каждого якоря из-за
+    # резервирования synset-ов более приоритетным.
+    prune_path = args.output.with_suffix(args.output.suffix + ".prune.json")
+    with prune_path.open("w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "anchors_file_sha256": lexicon["metadata"]["anchors_file_sha256"],
+                "built_at": lexicon["metadata"]["built_at"],
+                "priority_order": lexicon["metadata"]["priority_order"],
+                "pruned_synset_count": lexicon["metadata"]["pruned_synset_count"],
+                "by_anchor": prune_report,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+
     logger.info(
-        "Wrote %s: %d classes, %d lemmas",
-        args.output, lexicon["metadata"]["class_count"], lexicon["metadata"]["lemma_count"]
+        "Wrote %s: %d classes, %d lemmas, %d pruned synsets (report: %s)",
+        args.output,
+        lexicon["metadata"]["class_count"],
+        lexicon["metadata"]["lemma_count"],
+        lexicon["metadata"]["pruned_synset_count"],
+        prune_path.name,
     )
     return 0
 
