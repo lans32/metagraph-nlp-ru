@@ -152,9 +152,11 @@ def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
     - deprel in _SUBORDINATE_CLAUSE_DEPRELS (вложенная клауза);
     - deprel in (acl, acl:relcl) (причастный оборот).
 
-    Именное сказуемое с копулой (NOUN/ADJ/PROPN/PRON/NUM + ребёнок с
-    deprel=cop) считается предикатом только в позиции root — это
-    конструкции вида «RuWordNet — это тезаурус».
+    Именное сказуемое с копулой (NOUN/ADJ/PROPN/PRON/NUM + явная/нулевая
+    связка) считается предикатом в позиции root («RuWordNet — это
+    тезаурус»), в подчинённых клаузах _SUBORDINATE_CLAUSE_DEPRELS
+    («Преподаватель сказал, что задача сложна» — ccomp-ADJ с nsubj) и
+    как conj от другого именного сказуемого.
     """
     predicates: list[Token] = []
     seen: set[int] = set()
@@ -189,9 +191,20 @@ def _collect_predicates(parsed: ParsedSentence) -> list[Token]:
                 seen.add(t.id_in_sent)
             continue
 
-        if t.deprel == "root" and _is_nominal_predicate(t, parsed):
-            predicates.append(t)
-            seen.add(t.id_in_sent)
+        if _is_nominal_predicate(t, parsed):
+            if t.deprel == "root":
+                predicates.append(t)
+                seen.add(t.id_in_sent)
+                continue
+            if t.deprel in _SUBORDINATE_CLAUSE_DEPRELS:
+                predicates.append(t)
+                seen.add(t.id_in_sent)
+                continue
+            if t.deprel == "conj":
+                head = parsed.by_id(t.head)
+                if head is not None and _is_nominal_predicate(head, parsed):
+                    predicates.append(t)
+                    seen.add(t.id_in_sent)
 
     return predicates
 
